@@ -1,12 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { MatTableModule } from '@angular/material/table';
+import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSort, MatSortModule } from '@angular/material/sort';
+import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { Subscription, combineLatest } from 'rxjs';
 import {
   LIMITE_MAXIMO_PEDIDOS,
@@ -18,31 +24,47 @@ import {
 import { PedidoService } from '../../../core/services/pedido.service';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 
+type FiltroStatus = StatusPedido | 'TODOS';
+
 @Component({
   selector: 'app-pedido-list',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     RouterLink,
     MatTableModule,
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatSortModule,
+    MatPaginatorModule,
   ],
   templateUrl: './pedido-list.component.html',
   styleUrl: './pedido-list.component.scss',
 })
-export class PedidoListComponent implements OnInit, OnDestroy {
+export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
   private subscription?: Subscription;
+
+  @ViewChild(MatSort) sort!: MatSort;
+  @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   readonly displayedColumns = ['cliente', 'itens', 'peso', 'status', 'acoes'];
   readonly statusLabels = STATUS_LABELS;
   readonly limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   readonly StatusPedido = StatusPedido;
+  readonly opcoesFiltroStatus: FiltroStatus[] = ['TODOS', ...Object.values(StatusPedido)];
 
   pedidos: Pedido[] = [];
+  dataSource = new MatTableDataSource<Pedido>([]);
   carregando = true;
   apiIndisponivel = false;
+
+  filtroStatus: FiltroStatus = 'TODOS';
+  termoBusca = '';
 
   constructor(
     private pedidoService: PedidoService,
@@ -59,11 +81,33 @@ export class PedidoListComponent implements OnInit, OnDestroy {
       this.pedidos = pedidos;
       this.apiIndisponivel = !apiDisponivel;
       this.carregando = false;
+      this.aplicarFiltros();
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.dataSource.sort = this.sort;
+    this.dataSource.paginator = this.paginator;
   }
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+  }
+
+  aplicarFiltros(): void {
+    const termo = this.termoBusca.trim().toLowerCase();
+    this.dataSource.data = this.pedidos.filter(
+      (pedido) =>
+        (this.filtroStatus === 'TODOS' || pedido.status === this.filtroStatus) &&
+        (!termo || pedido.displayName.toLowerCase().includes(termo)),
+    );
+    if (this.paginator) {
+      this.paginator.firstPage();
+    }
+  }
+
+  rotuloFiltroStatus(status: FiltroStatus): string {
+    return status === 'TODOS' ? 'Todos os status' : this.statusLabels[status];
   }
 
   podeAtingirLimite(): boolean {

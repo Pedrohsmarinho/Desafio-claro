@@ -37,11 +37,14 @@ docker-compose.yml
       route guards e interceptor JWT.
 - [x] Frontend: identidade visual própria (paleta, tipografia, componentes),
       cards de resumo, badges de status, estados vazio/carregando/erro.
-- [ ] Diferenciais de backend ainda pendentes (Prometheus, métricas
-      customizadas — ver seção de diferenciais).
-- [ ] Diferenciais de frontend ainda pendentes (filtro/busca, paginação,
-      indicador de saúde da API, polling/atualização automática).
+- [x] Micrometer + Prometheus (`/actuator/prometheus`) e métricas de negócio
+      customizadas (`pedidos_total`, `pedidos_by_status`).
+- [x] Frontend: filtro por status + busca por nome, paginação/ordenação da
+      tabela, indicador de saúde da API (`/actuator/health`), polling no
+      dashboard.
 - [ ] Docker Compose completo com stack de monitoramento.
+- [ ] Commits no Git organizados por Gitflow (feito) e push para o GitHub
+      (pendente — aguardando autenticação do usuário).
 
 ## Como executar (local, sem Docker)
 
@@ -175,6 +178,38 @@ Com o backend rodando, a documentação da API fica disponível em:
 Gerada automaticamente pelo `springdoc-openapi` a partir dos controllers e
 DTOs (`@Operation`/`@ApiResponses` nos endpoints), sem necessidade de manter
 um arquivo `openapi.yaml` separado do código.
+
+### Observabilidade (Actuator, Prometheus, métricas de negócio)
+
+Com o backend rodando:
+
+- `http://localhost:8080/actuator/health`, `/info`, `/metrics` — obrigatórios
+- `http://localhost:8080/actuator/prometheus` — métricas no formato
+  Prometheus (`micrometer-registry-prometheus`)
+
+Métricas de negócio customizadas:
+
+- **`pedidos_total`** (Counter): total de pedidos **já criados**
+  historicamente, incrementado uma vez a cada `POST /api/pedidos` bem
+  sucedido, em `PedidoService.criar`. É cumulativo — **não decresce** com
+  exclusões, propositalmente: representa "quantos pedidos esse sistema já
+  processou", não "quantos existem agora".
+- **`pedidos_by_status{status}`** (Gauge, uma série por valor de
+  `StatusPedido`): quantos pedidos existem **agora** em cada status,
+  consultado sob demanda a cada scrape do Prometheus (`PedidoRepository
+  .countByStatus`). Reflete imediatamente mudanças de status e exclusões,
+  sem precisar instrumentar manualmente cada operação do service.
+- Ambas as métricas são **globais** (somam todos os usuários) — fazem
+  sentido como indicador de saúde/uso geral da operação, ao contrário do
+  limite de 5 pedidos (que é por usuário, uma regra de negócio da API, não
+  uma métrica de observabilidade).
+
+Vale notar uma armadilha do Micrometer: nomear um `Gauge` como
+`"pedidos_total"` faria o `PrometheusNamingConvention` **remover** o sufixo
+`_total` (reservado, por convenção Prometheus/OpenMetrics, para métricas
+cumulativas do tipo Counter), expondo a métrica só como `pedidos` — foi por
+isso que `pedidos_total` acabou implementado como `Counter` de verdade, e
+não como `Gauge` sobre `count()` do repositório.
 
 ### Postman (collection, environment, mocks e curl)
 
@@ -410,6 +445,31 @@ Em `/postman`:
   formulário) explica o "porquê" e oferece uma ação concreta ("Ver meus
   pedidos", para excluir/finalizar algo), em vez de só bloquear o botão sem
   explicação.
+- **Indicador de saúde da API consumindo `/actuator/health` de verdade**:
+  `HealthService` faz polling a cada 15s (mesmo intervalo documentado para o
+  scrape do Prometheus) e expõe `status$` (`up`/`down`/`verificando`); um
+  indicador (bolinha verde/amarela + tooltip) fica sempre visível na
+  toolbar, independente da tela. É deliberadamente separado do aviso
+  "API indisponível" da listagem: o indicador da toolbar reflete a saúde
+  geral do backend (Actuator), enquanto o aviso da listagem informa algo
+  mais específico — que os dados exibidos agora são os do fallback local.
+- **Filtro por status + busca por nome, e paginação/ordenação, via
+  `MatTableDataSource`**: em vez de filtrar client-side com um simples
+  `Array.filter` (o que funcionaria, mas exigiria reimplementar paginação e
+  ordenação manualmente), a listagem usa `MatTableDataSource` com
+  `MatSort`/`MatPaginator` conectados via `ViewChild`, e um método
+  (`aplicarFiltros`) que recalcula `dataSource.data` a partir do array
+  completo (`pedidos`) sempre que o termo de busca ou o status selecionado
+  mudam — combinando os dois filtros (status E busca), não um ou outro.
+  Com o limite de 5 pedidos por usuário a paginação tem pouco efeito prático
+  hoje, mas fica pronta caso esse limite mude.
+- **Polling no dashboard (a cada 20s) complementando o Observable
+  compartilhado**: `PedidoService.pedidos$` já atualiza o dashboard
+  imediatamente para qualquer ação feita na mesma aba (criar, excluir,
+  mudar status). O polling adicionado cobre o caso de uma mudança vinda de
+  fora dessa aba/sessão (outra aba, ou o mesmo usuário logado em outro
+  dispositivo) — sem isso, os gráficos ficariam desatualizados até a
+  próxima navegação para a tela.
 
 ## Validação realizada
 
@@ -428,11 +488,13 @@ visualmente:
 - Backend: 28 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`)
   rodando contra H2.
-- Frontend: `ng build` (dev e produção) sem erros; 30 testes Jasmine/Karma
+- Frontend: `ng build` (dev e produção) sem erros; 38 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
-  redireciona), o `authInterceptor` (anexa token, reage a 401) e o
-  `AuthService` (sessão em `sessionStorage`, expiração de token).
+  redireciona), o `authInterceptor` (anexa token, reage a 401), o
+  `AuthService` (sessão em `sessionStorage`, expiração de token), o
+  `HealthService` (up/down/polling) e o filtro/busca combinados da
+  listagem de pedidos.
 - Verificado que o `ng serve` já em execução recompilou automaticamente
   (watch mode) e está servindo o bundle atualizado (strings como
   `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).

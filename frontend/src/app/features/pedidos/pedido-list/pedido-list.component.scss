@@ -6,11 +6,38 @@
   gap: 16px;
 }
 
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.campo-busca {
+  flex: 1 1 260px;
+}
+
+.campo-filtro-status {
+  flex: 0 1 220px;
+}
+
 .tabela-pedidos {
   width: 100%;
-  border-radius: var(--raio-card);
+  border-radius: var(--raio-card) var(--raio-card) 0 0;
   overflow: hidden;
   box-shadow: var(--sombra-card);
+}
+
+.linha-sem-resultado td {
+  text-align: center;
+  padding: 32px 0;
+  color: var(--cor-texto-suave);
+}
+
+mat-paginator {
+  border-radius: 0 0 var(--raio-card) var(--raio-card);
+  box-shadow: var(--sombra-card);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .badge {

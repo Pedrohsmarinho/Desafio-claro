@@ -1,0 +1,87 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.tabela-pedidos {
+  width: 100%;
+  border-radius: var(--raio-card);
+  overflow: hidden;
+  box-shadow: var(--sombra-card);
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.badge-em-processamento {
+  color: var(--status-em-processamento);
+  background: var(--status-em-processamento-bg);
+}
+
+.badge-pausado {
+  color: var(--status-pausado);
+  background: var(--status-pausado-bg);
+}
+
+.badge-cancelado {
+  color: var(--status-cancelado);
+  background: var(--status-cancelado-bg);
+}
+
+.aviso-offline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--status-pausado-bg);
+  color: var(--status-pausado);
+  padding: 12px 16px;
+  border-radius: var(--raio-card);
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.estado-vazio, .estado-carregando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 64px 0;
+  color: var(--cor-texto-suave);
+  text-align: center;
+
+  mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    opacity: 0.6;
+  }
+}
+
+.estado-carregando {
+  flex-direction: row;
+  padding: 48px 0;
+
+  mat-icon {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.girando {
+  animation: girar 1.2s linear infinite;
+}
+
+@keyframes girar {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

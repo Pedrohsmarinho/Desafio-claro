@@ -1,0 +1,48 @@
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 48px);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 8px;
+}
+
+.seletor-modo {
+  width: 100%;
+  margin-bottom: 16px;
+
+  ::ng-deep .mat-button-toggle {
+    flex: 1;
+    text-align: center;
+  }
+}
+
+.full-width {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.erro {
+  color: #c62828;
+  font-size: 0.875rem;
+  margin: 8px 0;
+}
+
+.form-transicao {
+  animation: fade-in 0.25s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

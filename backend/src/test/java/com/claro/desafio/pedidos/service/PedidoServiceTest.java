@@ -7,10 +7,10 @@ import com.claro.desafio.pedidos.repository.PedidoRepository;
 import com.claro.desafio.pedidos.service.exception.LimiteExcedidoException;
 import com.claro.desafio.pedidos.service.exception.PedidoNaoEncontradoException;
 import com.claro.desafio.pedidos.service.exception.TransicaoInvalidaException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -31,11 +31,14 @@ class PedidoServiceTest {
     @Mock
     private PedidoRepository pedidoRepository;
 
-    @InjectMocks
     private PedidoService pedidoService;
 
     @BeforeEach
     void setUp() {
+        // SimpleMeterRegistry (real, em memoria) em vez de mock: o Counter
+        // registrado no construtor do PedidoService precisa de um MeterRegistry
+        // funcional, um mock puro nao suporta o registro interno do Micrometer.
+        pedidoService = new PedidoService(pedidoRepository, new SimpleMeterRegistry());
         ReflectionTestUtils.setField(pedidoService, "limiteMaximo", 5);
     }
 

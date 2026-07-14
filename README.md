@@ -471,9 +471,13 @@ Em `/postman`:
   `PedidoServiceTest` (Mockito; limite de 5 **por usuário**, isolamento
   entre usuários — pedido de um não aparece/edita para o outro — transições
   válidas/inválidas, pedido inexistente), `AuthServiceTest` (registro,
-  email duplicado, login com credenciais corretas/incorretas) e
+  email duplicado, login com credenciais corretas/incorretas),
   `JwtServiceTest` (geração/validação de token, expiração, segredo
-  incorreto). 28 testes no total.
+  incorreto) e `PedidoControllerSecurityTest` (contexto Spring completo +
+  filtro de segurança real, sem mocks: `/api/pedidos` retorna 401 sem
+  token/com token inválido/com token expirado, 422 em transição inválida
+  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro
+  usuário). 35 testes no total.
 
 ## Decisões técnicas — Frontend
 
@@ -630,8 +634,9 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 28 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
-  incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`)
+- Backend: 35 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+  incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
+  `PedidoControllerSecurityTest` — contexto Spring completo, sem mocks)
   rodando contra H2.
 - Frontend: `ng build` (dev e produção) sem erros; 38 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback

@@ -15,3 +15,11 @@ app:
     jwt-expiration-ms: 3600000
   pedidos:
     limite-maximo: 5
+
+management:
+  # tracing desligado nos testes: nao ha Tempo rodando no ambiente de teste,
+  # e nao queremos tentativas de export OTLP (nem que sejam so logs de erro)
+  # poluindo a saida dos testes.
+  tracing:
+    sampling:
+      probability: 0.0

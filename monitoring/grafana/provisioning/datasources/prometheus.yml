@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    # Grafana tambem roda com network_mode: host, entao "localhost" e o host
+    # de verdade, onde o Prometheus publica 9090.
+    url: http://localhost:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - datasourceUid: tempo
+          name: trace_id

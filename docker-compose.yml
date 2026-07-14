@@ -1,0 +1,94 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    # network_mode: host (Linux) porque, por decisao do usuario, o MariaDB
+    # deste desafio roda localmente (fora do Compose), escutando so em
+    # 127.0.0.1:3306. Bridge networking + host.docker.internal nao
+    # alcancaria um servico bindado apenas em loopback; host networking
+    # deixa o container enxergar "localhost" exatamente como o host ve.
+    # Pelo mesmo motivo, prometheus/loki/promtail/tempo/grafana tambem usam
+    # host networking (todos precisam se enxergar por "localhost").
+    # Trade-off: so funciona em Docker no Linux (nao Docker Desktop
+    # Mac/Windows) - ver README para a alternativa de containerizar o
+    # MariaDB tambem.
+    network_mode: host
+    environment:
+      DB_URL: ${DB_URL:-jdbc:mariadb://localhost:3306/pedidos_db}
+      DB_USERNAME: ${DB_USERNAME:-pedidos_user}
+      DB_PASSWORD: ${DB_PASSWORD:-pedidos_pass}
+      JWT_SECRET: ${JWT_SECRET:-WrFvuOmUSYFfbnSRaWDnhGJtws-JPFFuiBf2CcJUZZM917LeTkX-5nqRqoPA3ecE}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://localhost:4318/v1/traces}
+    depends_on:
+      - tempo
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    network_mode: host
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    network_mode: host
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    network_mode: host
+    volumes:
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+      # Socket do Docker (somente leitura): usado pelo Promtail para descobrir
+      # os containers em execucao e fazer tail dos logs de cada um.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:latest
+    network_mode: host
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    network_mode: host
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      # habilita a correlacao trace -> logs/metricas nos paineis de trace
+      GF_FEATURE_TOGGLES_ENABLE: traceqlSearch
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    restart: unless-stopped
+
+volumes:
+  grafana-data:
+  loki-data:
+  tempo-data:

@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
-import { Subscription } from 'rxjs';
+import { Subscription, timer } from 'rxjs';
 import { LIMITE_MAXIMO_PEDIDOS, Pedido, STATUS_LABELS, StatusPedido } from '../../core/models/pedido.model';
 import { PedidoService } from '../../core/services/pedido.service';
 
@@ -26,7 +26,11 @@ const COR_VAGA = '#e6e6e6';
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  /** Intervalo do polling que mantem os graficos atualizados mesmo com mudancas feitas em outra aba/sessao. */
+  private static readonly INTERVALO_POLLING_MS = 20_000;
+
   private subscription?: Subscription;
+  private pollingSubscription?: Subscription;
 
   limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   totalPedidos = 0;
@@ -57,14 +61,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(private pedidoService: PedidoService) {}
 
   ngOnInit(): void {
+    // Observable compartilhado: reflete imediatamente qualquer acao feita
+    // nesta aba (criar/excluir/mudar status). O polling abaixo complementa
+    // isso recarregando periodicamente da API, para refletir mudancas feitas
+    // em outra aba/sessao (ex: outro usuario, ou este mesmo usuario em outro
+    // dispositivo) sem precisar recarregar a pagina manualmente.
     this.subscription = this.pedidoService.pedidos$.subscribe((pedidos) => {
       this.atualizarGraficos(pedidos);
       this.carregando = false;
     });
+
+    this.pollingSubscription = timer(DashboardComponent.INTERVALO_POLLING_MS, DashboardComponent.INTERVALO_POLLING_MS)
+      .subscribe(() => this.pedidoService.carregar());
   }
 
   ngOnDestroy(): void {
     this.subscription?.unsubscribe();
+    this.pollingSubscription?.unsubscribe();
   }
 
   private atualizarGraficos(pedidos: Pedido[]): void {

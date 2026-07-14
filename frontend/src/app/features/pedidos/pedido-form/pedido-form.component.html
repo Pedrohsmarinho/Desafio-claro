@@ -1,0 +1,80 @@
+<div class="header">
+  <button mat-button routerLink="/pedidos">
+    <mat-icon>arrow_back</mat-icon>
+    Voltar
+  </button>
+</div>
+
+<h1 class="titulo-pagina">Novo pedido</h1>
+<p class="subtitulo-pagina">Preencha os dados abaixo — o pedido sempre começa como "Em processamento".</p>
+
+<mat-card class="form-card">
+  <mat-card-content>
+    @if (limiteAtingido) {
+      <div class="erro-limite">
+        <mat-icon>error_outline</mat-icon>
+        <div>
+          <strong>Limite de {{ limiteMaximo }} pedidos atingido.</strong>
+          <p>Exclua ou finalize um pedido existente para liberar espaço para um novo.</p>
+          <button mat-stroked-button routerLink="/pedidos">Ver meus pedidos</button>
+        </div>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="salvar()">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Cliente</mat-label>
+        <input matInput formControlName="displayName" placeholder="Ex: Pedido #4 - Ana Paula" />
+        @if (form.get('displayName')?.hasError('required') && form.get('displayName')?.touched) {
+          <mat-error>Nome do cliente é obrigatório</mat-error>
+        }
+        @if (form.get('displayName')?.hasError('minlength') && form.get('displayName')?.touched) {
+          <mat-error>Nome do cliente deve ter ao menos 5 caracteres</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Peso (kg)</mat-label>
+        <input matInput type="number" step="0.001" formControlName="pesoKg" />
+        @if (form.get('pesoKg')?.hasError('required') && form.get('pesoKg')?.touched) {
+          <mat-error>Peso é obrigatório</mat-error>
+        }
+        @if (form.get('pesoKg')?.hasError('min') && form.get('pesoKg')?.touched) {
+          <mat-error>Peso deve ser maior que zero</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Itens</mat-label>
+        <input matInput type="number" step="1" formControlName="itens" />
+        @if (form.get('itens')?.hasError('required') && form.get('itens')?.touched) {
+          <mat-error>Quantidade de itens é obrigatória</mat-error>
+        }
+        @if (form.get('itens')?.hasError('min') && form.get('itens')?.touched) {
+          <mat-error>Quantidade de itens deve ser maior que zero</mat-error>
+        }
+        @if (form.get('itens')?.hasError('pattern') && form.get('itens')?.touched) {
+          <mat-error>Quantidade de itens deve ser um número inteiro</mat-error>
+        }
+      </mat-form-field>
+
+      @if (erroEnvio) {
+        <p class="erro-envio">{{ erroEnvio }}</p>
+      }
+
+      <button
+        mat-raised-button
+        color="primary"
+        type="submit"
+        class="full-width"
+        [disabled]="form.invalid || limiteAtingido || enviando"
+      >
+        @if (enviando) {
+          <mat-spinner diameter="20"></mat-spinner>
+        } @else {
+          Salvar
+        }
+      </button>
+    </form>
+  </mat-card-content>
+</mat-card>

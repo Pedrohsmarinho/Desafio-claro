@@ -1,6 +1,7 @@
 package com.claro.desafio.pedidos.repository;
 
 import com.claro.desafio.pedidos.domain.Pedido;
+import com.claro.desafio.pedidos.domain.StatusPedido;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,4 +15,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     /** Usado para checar posse do pedido: um id que existe mas e de outro usuario deve "nao ser encontrado". */
     Optional<Pedido> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    /** Usado nas metricas de negocio (pedidos_by_status) - contagem global, entre todos os usuarios. */
+    long countByStatus(StatusPedido status);
 }

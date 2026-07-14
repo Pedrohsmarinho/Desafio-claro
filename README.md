@@ -1,17 +1,19 @@
 # Desafio Técnico — Gestão de Pedidos (Claro)
 
 Sistema de gestão de pedidos de e-commerce, composto por API REST em Spring
-Boot e SPA em Angular, com observabilidade via Spring Boot Actuator
-(Prometheus/Grafana como diferencial).
+Boot e SPA em Angular, com observabilidade completa (métricas, logs e
+traces — Prometheus, Loki e Tempo, visualizados no Grafana) como
+diferencial.
 
 ## Estrutura do repositório
 
 ```
 /backend    -> Spring Boot 3.x (Java 17+), API REST + MariaDB
 /frontend   -> Angular 17 (standalone components)
-/monitoring -> prometheus.yml e dashboards Grafana (diferencial)
+/monitoring -> configs de Prometheus/Loki/Promtail/Tempo + dashboards/provisioning do Grafana
 /postman    -> collection + environment do Postman e script de curl
 docker-compose.yml
+CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 ```
 
 > **Nota sobre o banco de dados**: o enunciado original do desafio pede H2 em
@@ -38,13 +40,19 @@ docker-compose.yml
 - [x] Frontend: identidade visual própria (paleta, tipografia, componentes),
       cards de resumo, badges de status, estados vazio/carregando/erro.
 - [x] Micrometer + Prometheus (`/actuator/prometheus`) e métricas de negócio
-      customizadas (`pedidos_total`, `pedidos_by_status`).
+      customizadas (`pedidos_total`, `pedidos_by_status`, `pedidos_peso_total_gramas`,
+      `pedidos_itens`).
 - [x] Frontend: filtro por status + busca por nome, paginação/ordenação da
       tabela, indicador de saúde da API (`/actuator/health`), polling no
       dashboard.
-- [ ] Docker Compose completo com stack de monitoramento.
-- [ ] Commits no Git organizados por Gitflow (feito) e push para o GitHub
-      (pendente — aguardando autenticação do usuário).
+- [x] Docker Compose completo (backend, frontend, Prometheus, **Loki, Tempo**,
+      Grafana) com tracing distribuído, logs centralizados e um único
+      dashboard provisionado automaticamente (negócio, saúde e visão técnica
+      juntos).
+- [x] Commits no Git organizados por Gitflow (`main`/`develop`,
+      Conventional Commits), release `v1.0.0` taggeada, proteção de branch
+      na `main` (PR obrigatório, sem force-push, `enforce_admins`), tudo
+      publicado no GitHub.
 
 ## Como executar (local, sem Docker)
 
@@ -91,6 +99,91 @@ npm start
 
 A aplicação sobe em `http://localhost:4200` e consome a API em
 `http://localhost:8080`.
+
+## Como executar (via Docker Compose)
+
+Pré-requisito: o mesmo MariaDB local descrito acima, rodando em
+`localhost:3306` (ver seção anterior para o `CREATE DATABASE`/`CREATE USER`).
+O Compose sobe backend, frontend e a stack completa de observabilidade —
+**Prometheus + Loki + Tempo + Grafana** (o "LGTM stack" da Grafana Labs) —
+mas **não** o MariaDB (decisão documentada em
+[Decisões técnicas — Backend](#decisões-técnicas--backend)).
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+| Serviço | URL |
+|---|---|
+| Frontend | http://localhost:4200 |
+| Backend | http://localhost:8080 |
+| Swagger UI | http://localhost:8080/swagger-ui/index.html |
+| Prometheus | http://localhost:9090 |
+| Loki | http://localhost:3100 (sem UI própria; consultado via Grafana) |
+| Tempo | http://localhost:3200 (sem UI própria; consultado via Grafana) |
+| Grafana | http://localhost:3000 (usuário `admin`, senha `admin`) |
+
+Um único dashboard **"Pedidos API - Visão Geral e Saúde"** já vem
+provisionado automaticamente no Grafana (login → Dashboards), reunindo
+negócio, saúde e métricas técnicas no mesmo lugar em vez de espalhar por
+telas diferentes:
+
+- **Cards de resumo**: total de pedidos, em processamento, peso total em
+  kg e itens totais (mesmas métricas de negócio dos cards do frontend).
+- **Saúde da API**: indicador via a métrica `up` (que o Prometheus gera
+  automaticamente a cada scrape — reflete o mesmo `/actuator/health`
+  consumido no frontend), com gráfico de disponibilidade na última hora.
+- **Métricas técnicas**: requisições/s por endpoint, latência média,
+  memória JVM (heap) e taxa de erros 4xx/5xx.
+- **Painel de logs em tempo real do backend** (via Loki/Promtail), na
+  parte de baixo do dashboard.
+
+Atualiza sozinho a cada 10s (`refresh: 10s` no próprio dashboard).
+
+Cada log do backend carrega `traceId`/`spanId` (Micrometer Tracing), e o
+Grafana está configurado para correlacionar automaticamente: no painel de
+logs, qualquer linha com `traceId=...` vira um link clicável para o trace
+completo no Tempo; e, a partir de um trace no Tempo, "View logs" busca os
+logs daquele mesmo `traceId` no Loki. Também dá para ver esses traces
+diretamente no Tempo (Explore → Tempo → buscar por `service.name=pedidos-api`).
+
+Para derrubar tudo: `docker compose down` (os dados de Grafana/Loki/Tempo
+persistem nos respectivos volumes; para limpar também:
+`docker compose down -v`).
+
+### Trade-off: MariaDB local, não containerizado
+
+Os serviços `backend`, `prometheus` e `grafana` rodam com
+`network_mode: host` (Linux) — decisão direta do trade-off de manter o
+MariaDB local (fora do Compose, por pedido do usuário durante o
+desenvolvimento): o MariaDB deste ambiente escuta só em `127.0.0.1:3306`,
+e bridge networking + `host.docker.internal` **não alcançaria** um serviço
+bindado apenas em loopback (um problema comum e não muito óbvio na hora de
+misturar container com serviço local). `network_mode: host` faz o
+container enxergar `localhost` exatamente como o host enxerga, o que
+resolve isso sem precisar reconfigurar o `bind-address` do MariaDB.
+
+Essa escolha tem duas consequências que valem registrar:
+
+- **Só funciona em Docker no Linux** — Docker Desktop (Mac/Windows) não
+  suporta `network_mode: host` da mesma forma (a VM interna do Docker
+  Desktop já isola a rede do container da rede real do host). Rodando em
+  Linux nativo (como este ambiente), funciona sem ressalvas.
+- **Prometheus/Loki/Promtail/Tempo/Grafana também usam host networking**,
+  não por precisarem falar com o MariaDB, mas para poderem se enxergar
+  entre si e ao backend (`localhost:8080`, `:9090`, `:3100`, `:3200`) da
+  forma mais simples, sem precisar de uma rede Docker customizada com DNS
+  por nome de serviço só para esse grupo. Só o `frontend` fica de fora
+  (bridge + porta publicada), já que ele não precisa alcançar nenhum
+  desses serviços a nível de Docker (as chamadas partem do navegador do
+  usuário, não do container).
+
+Se o MariaDB também fosse containerizado (item já registrado em
+["O que eu faria diferente com mais tempo"](#o-que-eu-faria-diferente-com-mais-tempo)),
+todos os serviços poderiam usar bridge networking padrão do Compose, com
+nomes de serviço como hostname (`mariadb`, `backend`, etc.) — mais portável
+entre sistemas operacionais.
 
 ## Modelo de domínio — Pedido
 
@@ -199,17 +292,69 @@ Métricas de negócio customizadas:
   consultado sob demanda a cada scrape do Prometheus (`PedidoRepository
   .countByStatus`). Reflete imediatamente mudanças de status e exclusões,
   sem precisar instrumentar manualmente cada operação do service.
-- Ambas as métricas são **globais** (somam todos os usuários) — fazem
+- **`pedidos_peso_total_gramas`** e **`pedidos_itens`** (Gauges): soma do
+  peso e da quantidade de itens de todos os pedidos cadastrados agora —
+  alimentam diretamente os cards de resumo do dashboard "Pedidos API -
+  Visão Geral e Saúde" no Grafana (mesmo dado que os cards de resumo do
+  frontend mostram, só que visto pela ótica de infraestrutura/operação).
+- Todas essas métricas são **globais** (somam todos os usuários) — fazem
   sentido como indicador de saúde/uso geral da operação, ao contrário do
   limite de 5 pedidos (que é por usuário, uma regra de negócio da API, não
   uma métrica de observabilidade).
 
-Vale notar uma armadilha do Micrometer: nomear um `Gauge` como
-`"pedidos_total"` faria o `PrometheusNamingConvention` **remover** o sufixo
-`_total` (reservado, por convenção Prometheus/OpenMetrics, para métricas
-cumulativas do tipo Counter), expondo a métrica só como `pedidos` — foi por
-isso que `pedidos_total` acabou implementado como `Counter` de verdade, e
-não como `Gauge` sobre `count()` do repositório.
+Vale notar uma armadilha do Micrometer que apareceu duas vezes ao nomear
+essas métricas: nomear um `Gauge` terminado em `_total` (como
+`"pedidos_total"` ou a primeira tentativa de `"pedidos_itens_total"`) faz o
+`PrometheusNamingConvention` **remover** esse sufixo (reservado, por
+convenção Prometheus/OpenMetrics, para métricas cumulativas do tipo
+Counter) — `pedidos_total` vazaria como `pedidos`, e `pedidos_itens_total`
+como `pedidos_itens`. Por isso `pedidos_total` virou um `Counter` de
+verdade (faz sentido ser cumulativo mesmo), e a métrica de itens já foi
+batizada direto como `pedidos_itens` (sem lutar contra a convenção para um
+Gauge, que satisfaz a mesma).
+
+### Observabilidade completa: Loki + Tempo (stack LGTM)
+
+Além de métricas (Prometheus), o Grafana também está integrado com **logs**
+(Loki) e **traces distribuídos** (Tempo), formando a stack "LGTM" (Loki,
+Grafana, Tempo, Métricas) da Grafana Labs — não só o Prometheus isolado.
+
+- **Tracing** (`micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`):
+  o Spring instrumenta automaticamente cada requisição HTTP (incluindo os
+  filtros de segurança do Spring Security) e exporta os traces via OTLP
+  para o Tempo. `management.tracing.sampling.probability: 1.0` amostra
+  100% das requisições — razoável para o volume deste desafio; em produção
+  com tráfego real, um valor menor (ex: `0.1`) evitaria sobrecarregar o
+  coletor.
+- **Logs** (Promtail + Loki): o Promtail descobre os containers via o
+  socket do Docker (`docker_sd_configs`) e envia os logs de cada um para o
+  Loki, sem precisar listar serviço por serviço na configuração.
+- **Correlação logs ↔ traces**: o padrão de log
+  (`logging.pattern.console`) inclui `traceId`/`spanId` (preenchidos no MDC
+  pelo Micrometer Tracing). O datasource do Loki tem um `derivedField` que
+  transforma qualquer `traceId=<hex>` num link para o trace correspondente
+  no Tempo; o datasource do Tempo tem `tracesToLogsV2` apontando de volta
+  pro Loki — a correlação funciona nos dois sentidos.
+
+Duas armadilhas encontradas ao montar isso, registradas para quem for
+reproduzir:
+
+1. **Tempo v3 mudou o schema de configuração**: a imagem `grafana/tempo:latest`
+   hoje é a v3, que reestruturou o antigo modelo de `ingester`/`compactor`
+   (existentes na v2) para uma arquitetura de "live-store" — um
+   `tempo.yaml` com as seções antigas falha com
+   `field ingester not found in type app.Config`. A configuração mínima
+   (`server` + `distributor.receivers.otlp` + `storage.trace`) já é
+   suficiente; o resto usa defaults sensatos do modo monolítico.
+2. **Volume do Grafana com estado de uma subida anterior**: ao adicionar
+   Loki/Tempo depois de já ter rodado o Compose só com Prometheus, o
+   Grafana passou a falhar na subida com
+   `Datasource provisioning error: data source not found` — não por causa
+   da configuração nova, mas porque o volume `grafana-data` (SQLite)
+   ainda tinha o estado da execução anterior. Um
+   `docker compose down && docker volume rm <projeto>_grafana-data` (ou
+   `docker compose down -v`) resolve; quem for rodar isso do zero num
+   clone limpo do repositório não deve nem notar o problema.
 
 ### Postman (collection, environment, mocks e curl)
 
@@ -529,13 +674,15 @@ logado (deve redirecionar para `/login`).
   fluxos completos (login → cadastro de pedido → mudança de status →
   logout) daria mais confiança do que a combinação atual.
 - **MariaDB containerizado no Docker Compose**: por pedido do usuário, o
-  MariaDB usado neste desafio é uma instância local (fora do Compose); para
-  um ambiente "suba tudo com um comando" de verdade, valeria adicionar um
-  serviço `mariadb` ao `docker-compose.yml` com volume persistente,
-  documentando a migração de `localhost:3306` para o hostname do serviço.
-- **Paginação/filtro na listagem de pedidos**: pouco relevante hoje (limite
-  de 5 por usuário garante que a tabela nunca cresce muito), mas seria
-  necessário se esse limite mudasse ou se a listagem precisasse mostrar
-  pedidos de outros períodos/arquivados no futuro.
-- **Observabilidade completa (Prometheus/Grafana)**: ainda pendente neste
-  projeto — ver checklist de status no topo do README.
+  MariaDB usado neste desafio é uma instância local (fora do Compose), o
+  que forçou `backend`/`prometheus`/`grafana` a rodarem com
+  `network_mode: host` (só funciona em Docker no Linux — ver
+  [trade-off documentado](#trade-off-mariadb-local-não-containerizado)).
+  Para um ambiente "sobe em qualquer SO com um comando" de verdade, valeria
+  adicionar um serviço `mariadb` ao `docker-compose.yml` com volume
+  persistente e voltar todos os serviços para bridge networking padrão
+  (nome do serviço como hostname).
+- **CI configurado** (GitHub Actions): rodar os testes (JUnit + Jasmine) e
+  o build do Docker automaticamente a cada push/PR, aproveitando a proteção
+  de branch já configurada na `main` (que hoje exige PR, mas não exige um
+  check de CI passando).

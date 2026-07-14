@@ -21,7 +21,7 @@
 |---|---|---|
 | 1 | Autenticação JWT retornada no login | ✅ Completo — e ampliado além do pedido original: cadastro de usuários (`POST /api/auth/registrar`), modelo multi-tenant (pedidos isolados por usuário), autorização (404 em vez de 403 para recurso de outro usuário) |
 | 2 | Micrometer + Prometheus (`micrometer-registry-prometheus`, endpoint `/actuator/prometheus`) | ✅ Completo |
-| 3 | Métricas de negócio customizadas (`pedidos_total`, `pedidos_by_status{status}`) | ✅ Completo — `pedidos_total` como `Counter` (cumulativo), `pedidos_by_status` como `Gauge` (estado atual) |
+| 3 | Métricas de negócio customizadas (`pedidos_total`, `pedidos_by_status{status}`) | ✅ Completo — e ampliado: `pedidos_peso_total_gramas` e `pedidos_itens` também, alimentando o dashboard único do Grafana |
 
 ## Frontend — Telas obrigatórias
 
@@ -39,12 +39,12 @@
 | 1 | Route Guard (`CanActivate`) protegendo rotas internas | ✅ Completo (`authGuard`, funcional, padrão Angular 17) |
 | 2 | HTTP Interceptor anexando o token JWT automaticamente | ✅ Completo (`authInterceptor`; também trata 401 limpando sessão e redirecionando) |
 | 3 | Mensagens de validação campo a campo no cadastro | ✅ Completo (login, cadastro de usuário e cadastro de pedido) |
-| 4 | Cards de resumo no dashboard (total de pedidos, em processamento, peso total, itens totais) | ✅ Completo |
+| 4 | Cards de resumo no dashboard (total de pedidos, em processamento, peso total, itens totais) | ✅ Completo — no frontend **e** espelhado no dashboard único do Grafana |
 | 5 | Badge colorido por status (verde/amarelo/vermelho) na listagem | ✅ Completo (cores semânticas próprias, independentes da paleta de marca) |
 | 6 | Filtro por status e busca por nome do cliente | ✅ Completo (`MatTableDataSource`, filtro combinado status + busca) |
 | 7 | Feedback de carregamento (spinner) durante envios | ✅ Completo (login, cadastro, listagem, dashboard) |
-| 8 | Atualização automática dos gráficos (polling ou Observable compartilhado) | ✅ Completo — Observable compartilhado (`PedidoService.pedidos$`) para ações na mesma aba **+ polling a cada 20s** no dashboard para mudanças externas |
-| 9 | Indicador de saúde da API consumindo `/actuator/health` | ✅ Completo — `HealthService` faz polling real do endpoint a cada 15s, indicador na toolbar (visível em toda a aplicação) |
+| 8 | Atualização automática dos gráficos (polling ou Observable compartilhado) | ✅ Completo — Observable compartilhado (`PedidoService.pedidos$`) + polling a cada 20s no frontend; dashboard Grafana também com `refresh: 10s` |
+| 9 | Indicador de saúde da API consumindo `/actuator/health` | ✅ Completo — no frontend (`HealthService`, polling a cada 15s, indicador na toolbar) **e** no Grafana (painel com a métrica `up{job="pedidos-api"}`, que o Prometheus deriva do scrape do mesmo endpoint) |
 | 10 | Paginação ou ordenação da tabela | ✅ Completo (`MatSort` + `MatPaginator` na listagem) |
 
 ## Requisitos técnicos gerais
@@ -54,7 +54,7 @@
 | Angular 17 standalone components (com justificativa documentada) | ✅ Completo |
 | Estilização (Angular Material customizado) | ✅ Completo |
 | Gráficos via ng2-charts/Chart.js (com justificativa documentada) | ✅ Completo |
-| Docker Compose subindo frontend + backend + monitoramento | ❌ Não feito |
+| Docker Compose subindo frontend + backend + monitoramento | ✅ Completo — validado de ponta a ponta (`docker compose up`) |
 | Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 28 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, contexto Spring) |
 | Testes Jasmine/Karma | ✅ Completo — 38 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `HealthService`, filtro/busca da listagem) |
 
@@ -62,8 +62,8 @@
 
 | Item | Status |
 |---|---|
-| Repositório Git organizado (`backend`, `frontend`, `monitoring`, `docker-compose` na raiz) | 🟡 Estrutura pronta, histórico local organizado em **Gitflow** (`main`/`develop`, 17 commits fragmentados por Conventional Commits) — **push para o GitHub ainda pendente** (falta autenticação HTTPS/SSH do usuário neste ambiente) |
-| README com instruções de execução, decisões técnicas e trade-offs | ✅ Completo (exceto a parte de execução via Docker, que depende do `docker-compose.yml` ainda não criado) |
+| Repositório Git organizado (`backend`, `frontend`, `monitoring`, `docker-compose` na raiz) | ✅ Completo — Gitflow (`main`/`develop`), Conventional Commits, release `v1.0.0` taggeada, proteção de branch na `main` (PR obrigatório, sem force-push, `enforce_admins`), tudo publicado no GitHub |
+| README com instruções de execução, decisões técnicas e trade-offs | ✅ Completo (local **e** via Docker Compose) |
 | README com "o que faria diferente com mais tempo" | ✅ Completo |
 | `CONTRIBUTING.md` com fluxo Gitflow e Conventional Commits | ✅ Completo |
 
@@ -74,10 +74,17 @@
 - **Postman**: collection com exemplos/mocks, environment e script `curl-examples.sh`
 - **Multiusuário completo**: cadastro de usuários, isolamento de pedidos por usuário (limite de 5 por usuário, não global), autorização por JWT
 - **Identidade visual da Claro**: paleta vermelho/branco própria, tipografia Manrope, estados vazio/carregando/erro tratados
-- **Gitflow**: `main`/`develop`, convenção `feature/`/`release/`/`hotfix/`, Conventional Commits, histórico local fragmentado em 17 commits temáticos
+- **Gitflow**: `main`/`develop`, convenção `feature/`/`release/`/`hotfix/`, Conventional Commits, proteção de branch, release `v1.0.0`
+- **Observabilidade completa (stack LGTM)**: além do Prometheus (métricas), o Grafana também tem **Loki** (logs centralizados de todos os containers via Promtail) e **Tempo** (tracing distribuído via Micrometer Tracing + OTLP, com spans automáticos do Spring Security/MVC) — logs e traces correlacionados bidirecionalmente (`traceId` no log linka pro trace no Tempo, e vice-versa)
+- **Um único dashboard Grafana** "Pedidos API - Visão Geral e Saúde": cards de resumo, indicador de saúde, disponibilidade e logs em tempo real, junto com as métricas técnicas (req/s por endpoint, latência, memória JVM, erros 4xx/5xx) — tudo num só lugar, sem precisar trocar de dashboard
 
 ## Resumo do que falta
 
-1. `docker-compose.yml` + stack de monitoramento (Prometheus/Grafana)
-2. **Push para o GitHub** — histórico local pronto, falta o usuário autenticar (HTTPS token ou SSH) num terminal interativo de verdade
-3. Proteção de branch `main` no GitHub (diferencial, depende do push acontecer primeiro)
+Nada do escopo pedido ou dos diferenciais listados no enunciado ficou de
+fora. Itens que ficaram para uma eventual continuação (não bloqueantes,
+documentados em ["O que eu faria diferente com mais tempo"](README.md#o-que-eu-faria-diferente-com-mais-tempo)):
+
+- Containerizar o MariaDB também (hoje é local, por decisão do usuário)
+- CI (GitHub Actions) rodando testes/build a cada PR
+- Testes E2E de verdade (Cypress/Playwright)
+- Refresh token e cookie `httpOnly` para o JWT do frontend

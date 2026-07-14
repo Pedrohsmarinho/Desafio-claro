@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: pedidos-api
+
+  datasource:
+    # valores default apontam para o MariaDB local do desafio; sobrescritos por
+    # variaveis de ambiente ao rodar via Docker Compose (ver docker-compose.yml)
+    url: ${DB_URL:jdbc:mariadb://localhost:3306/pedidos_db}
+    driver-class-name: org.mariadb.jdbc.Driver
+    username: ${DB_USERNAME:pedidos_user}
+    password: ${DB_PASSWORD:pedidos_pass}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # prometheus é habilitado apenas quando o diferencial de observabilidade é implementado
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Pedidos API
+    description: API de gestao de pedidos de e-commerce - Desafio Tecnico Claro
+    version: 1.0.0
+
+app:
+  security:
+    # segredo usado para assinar/validar o JWT (HMAC-SHA256, exige >= 256 bits).
+    # o valor abaixo e apenas o default de desenvolvimento local - em qualquer
+    # ambiente real isso DEVE vir da variavel de ambiente JWT_SECRET, nunca
+    # commitado. Ver README (secao JWT) para detalhes da escolha.
+    jwt-secret: ${JWT_SECRET:WrFvuOmUSYFfbnSRaWDnhGJtws-JPFFuiBf2CcJUZZM917LeTkX-5nqRqoPA3ecE}
+    # 1 hora, em milissegundos
+    jwt-expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+  pedidos:
+    limite-maximo: 5
+
+logging:
+  level:
+    root: INFO
+    com.claro.desafio.pedidos: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

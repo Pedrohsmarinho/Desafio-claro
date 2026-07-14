@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: pedidos-api
+    metrics_path: /actuator/prometheus
+    static_configs:
+      # Prometheus roda com network_mode: host (ver docker-compose.yml), entao
+      # "localhost" aqui e o host de verdade - onde o backend publica 8080
+      # (tambem em host networking, pelo mesmo motivo: precisa alcançar o
+      # MariaDB local em 127.0.0.1:3306).
+      - targets: ["localhost:8080"]

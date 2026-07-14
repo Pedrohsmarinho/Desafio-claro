@@ -36,6 +36,17 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+  tracing:
+    sampling:
+      # 100% das requisicoes viram trace no Tempo. Razoavel para o volume de
+      # trafego deste desafio; em producao com trafego real, um valor menor
+      # (ex: 0.1) evitaria sobrecarregar o coletor.
+      probability: 1.0
+  otlp:
+    tracing:
+      # Tempo roda com network_mode: host (assim como backend/prometheus/
+      # grafana), entao "localhost" aqui e o host de verdade.
+      endpoint: ${OTLP_ENDPOINT:http://localhost:4318/v1/traces}
 
 info:
   app:
@@ -60,4 +71,7 @@ logging:
     root: INFO
     com.claro.desafio.pedidos: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    # traceId/spanId (preenchidos no MDC pelo Micrometer Tracing) permitem
+    # correlacionar um log no Loki com o trace correspondente no Tempo -
+    # e o que possibilita o "clique no log -> veja o trace" no Grafana.
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} [traceId=%X{traceId:-}, spanId=%X{spanId:-}] - %msg%n"

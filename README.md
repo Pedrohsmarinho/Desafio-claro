@@ -1,0 +1,479 @@
+# Desafio Técnico — Gestão de Pedidos (Claro)
+
+Sistema de gestão de pedidos de e-commerce, composto por API REST em Spring
+Boot e SPA em Angular, com observabilidade via Spring Boot Actuator
+(Prometheus/Grafana como diferencial).
+
+## Estrutura do repositório
+
+```
+/backend    -> Spring Boot 3.x (Java 17+), API REST + MariaDB
+/frontend   -> Angular 17 (standalone components)
+/monitoring -> prometheus.yml e dashboards Grafana (diferencial)
+/postman    -> collection + environment do Postman e script de curl
+docker-compose.yml
+```
+
+> **Nota sobre o banco de dados**: o enunciado original do desafio pede H2 em
+> memória ("suficiente para o escopo do desafio"). A pedido do candidato,
+> o projeto foi migrado para **MariaDB** como banco principal (mantendo H2
+> apenas para os testes JUnit, que seguem rápidos e isolados). Veja a seção
+> [Decisões técnicas — Backend](#decisões-técnicas--backend) para detalhes.
+
+## Status do projeto
+
+> Em construção. Esta seção é atualizada a cada etapa concluída.
+
+- [x] Backend obrigatório: modelo de domínio, regras de negócio, endpoints,
+      Actuator, logs estruturados, testes manuais (curl) e JUnit.
+- [x] Backend migrado de H2 para MariaDB (persistência real).
+- [x] Frontend obrigatório: login, dashboard, listagem, cadastro.
+- [x] Validação ponta a ponta (via curl simulando o navegador + suites
+      automatizadas; veja nota abaixo sobre o teste visual manual).
+- [x] Swagger/OpenAPI + collection Postman com mocks.
+- [x] Backend multiusuário: cadastro de usuários, JWT completo, pedidos
+      isolados por usuário (autorização), limite de 5 por usuário.
+- [x] Frontend: tela única de login/cadastro com seletor, `AuthService`,
+      route guards e interceptor JWT.
+- [x] Frontend: identidade visual própria (paleta, tipografia, componentes),
+      cards de resumo, badges de status, estados vazio/carregando/erro.
+- [ ] Diferenciais de backend ainda pendentes (Prometheus, métricas
+      customizadas — ver seção de diferenciais).
+- [ ] Diferenciais de frontend ainda pendentes (filtro/busca, paginação,
+      indicador de saúde da API, polling/atualização automática).
+- [ ] Docker Compose completo com stack de monitoramento.
+
+## Como executar (local, sem Docker)
+
+### Backend
+
+Pré-requisito: um MariaDB acessível em `localhost:3306` com o schema e
+usuário abaixo (ajuste via variáveis de ambiente `DB_URL`/`DB_USERNAME`/
+`DB_PASSWORD` se preferir outros valores):
+
+```sql
+CREATE DATABASE IF NOT EXISTS pedidos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'pedidos_user'@'localhost' IDENTIFIED BY 'pedidos_pass';
+GRANT ALL PRIVILEGES ON pedidos_db.* TO 'pedidos_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+```bash
+cd backend
+./mvnw spring-boot:run
+```
+
+A API sobe em `http://localhost:8080`. O schema (tabela `pedidos`) é criado/
+atualizado automaticamente pelo Hibernate (`ddl-auto: update`) na primeira
+subida, e o seed inicial é aplicado pelo `DataSeeder` somente se a tabela
+estiver vazia.
+
+Usuário de login de demonstração (criado automaticamente pelo `DataSeeder`
+na primeira subida, junto com os 3 pedidos do seed):
+
+- email: `admin@pedidos.com`
+- senha: `admin123`
+
+Também é possível criar novos usuários via `POST /api/auth/registrar` (ver
+[Contrato da API](#contrato-da-api)) — cada usuário só enxerga e manipula os
+próprios pedidos.
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm start
+```
+
+A aplicação sobe em `http://localhost:4200` e consome a API em
+`http://localhost:8080`.
+
+## Modelo de domínio — Pedido
+
+| Campo         | Tipo               | Observação                                   |
+|---------------|--------------------|-----------------------------------------------|
+| `id`          | Long               | gerado pelo banco                             |
+| `displayName` | String             | nome do cliente/pedido                        |
+| `itens`       | Integer            | quantidade de itens                           |
+| `peso`        | Long               | **armazenado sempre em gramas**               |
+| `status`      | enum StatusPedido  | `EM_PROCESSAMENTO`, `PAUSADO`, `CANCELADO`     |
+
+O peso é persistido e trafega pela API sempre em gramas (mesma unidade do
+seed). O frontend converte a exibição para quilogramas (`pesoKg`, calculado
+no `PedidoResponse`), e é responsável por converter o valor digitado pelo
+usuário (em kg, mais natural para um formulário de e-commerce) para gramas
+antes do `POST`.
+
+### Máquina de transição de status
+
+Implementada em `StatusPedido.podeTransicionarPara`, mantendo a regra de
+negócio junto ao domínio (facilita testes unitários e evita duplicar a
+tabela de transições em múltiplos services):
+
+```
+EM_PROCESSAMENTO -> PAUSADO
+EM_PROCESSAMENTO -> CANCELADO
+PAUSADO          -> CANCELADO
+PAUSADO          -> EM_PROCESSAMENTO
+CANCELADO        -> EM_PROCESSAMENTO
+```
+
+Qualquer transição fora dessa tabela (incluindo `CANCELADO -> PAUSADO` e
+transições para o mesmo estado) retorna `422 Unprocessable Entity`.
+
+### Limite de negócio — por usuário
+
+Máximo de 5 pedidos cadastrados simultaneamente **por usuário** (não
+global). O enunciado original do desafio não especificava o escopo desse
+limite — fazia sentido em um sistema single-tenant, onde só existia um
+usuário implícito. Ao evoluir para multiusuário, optei por manter o limite
+de negócio por usuário (cada conta pode ter até 5 pedidos simultâneos,
+independente de quantos outros usuários existam ou quantos pedidos eles
+tenham), em vez de um limite global compartilhado por todos — a leitura mais
+natural de "sistema de gestão de pedidos" é que o limite é uma regra da
+operação de cada cliente, não uma trava artificial da plataforma inteira.
+Tentativas de criação acima do limite retornam `422` e são logadas em
+`WARN`, incluindo o id do usuário.
+
+## Contrato da API
+
+| Método | Endpoint                    | Descrição                              | Autenticação | Códigos de sucesso | Códigos de erro |
+|--------|------------------------------|-----------------------------------------|--------------|---------------------|------------------|
+| POST   | `/api/auth/login`            | Autentica o usuário, retorna JWT        | não          | 200                 | 400, 401         |
+| POST   | `/api/auth/registrar`        | Cadastra um usuário, já retorna JWT     | não          | 201                 | 400, 409         |
+| GET    | `/api/pedidos`                | Lista os pedidos do usuário autenticado | **sim**      | 200                 | 401              |
+| POST   | `/api/pedidos`                | Cadastra um novo pedido para o usuário  | **sim**      | 201                 | 400, 401, 422    |
+| PATCH  | `/api/pedidos/{id}/status`   | Altera o status de um pedido do usuário | **sim**      | 200                 | 400, 401, 404, 422 |
+| DELETE | `/api/pedidos/{id}`          | Exclui um pedido do usuário              | **sim**      | 204                 | 401, 404         |
+
+CORS habilitado apenas para `http://localhost:4200`.
+
+### Autorização por usuário (multi-tenant)
+
+Todas as rotas de `/api/pedidos/**` exigem um JWT válido (header
+`Authorization: Bearer <token>`) e operam **exclusivamente** sobre os
+pedidos do usuário identificado pelo token — nunca a partir de um
+`usuarioId` vindo do corpo, path ou query da requisição. Isso fecha uma
+falha de autorização comum (IDOR — *Insecure Direct Object Reference*): sem
+essa regra, um usuário autenticado poderia manipular pedidos de outra conta
+apenas adivinhando/incrementando o `id` na URL.
+
+Quando um `id` de pedido existe mas pertence a outro usuário, a API retorna
+**`404 Not Found`** (não `403 Forbidden`) — a mesma resposta usada para um
+`id` que simplesmente não existe. A escolha é deliberada: `403` confirmaria
+para quem está tentando o ataque que aquele recurso existe (só que não é
+dele), vazando informação; `404` não distingue os dois casos.
+
+### Documentação interativa (Swagger / OpenAPI)
+
+Com o backend rodando, a documentação da API fica disponível em:
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- Especificação OpenAPI (JSON): `http://localhost:8080/v3/api-docs`
+
+Gerada automaticamente pelo `springdoc-openapi` a partir dos controllers e
+DTOs (`@Operation`/`@ApiResponses` nos endpoints), sem necessidade de manter
+um arquivo `openapi.yaml` separado do código.
+
+### Postman (collection, environment, mocks e curl)
+
+Em `/postman`:
+
+- `Pedidos-API.postman_collection.json` — todas as rotas (autenticação,
+  registro, listar, criar, alterar status, excluir), organizadas em pastas
+  "Autenticação" e "Pedidos". Os requests de login/registro têm um script
+  de teste que salva automaticamente o token retornado na variável de
+  coleção `{{token}}`; os requests de Pedidos já usam
+  `Authorization: Bearer {{token}}`. Cada request tem **exemplos salvos**
+  (sucesso e os erros 400/401/404/409/422 relevantes), capturados a partir
+  de respostas reais da API. Import: Postman → File → Import → selecione o
+  arquivo.
+- `Pedidos-API.postman_environment.json` — variáveis `baseUrl`
+  (`http://localhost:8080`), `token` e `pedidoId`, para não precisar
+  hardcodar a URL em cada request.
+- **Mock Server**: como cada request já tem exemplos salvos, é possível
+  clicar com o botão direito na collection importada → "Mock collection" e o
+  Postman sobe um servidor que responde com esses exemplos — útil para o
+  frontend (ou terceiros) trabalharem contra a API sem precisar do backend
+  (MariaDB incluso) rodando.
+- `curl-examples.sh` — os mesmos requests em `curl` puro (com
+  `BASE_URL` configurável via variável de ambiente), para quem preferir
+  linha de comando ou quiser colar um bloco no Postman via
+  "Import → Raw text" (o Postman reconhece `curl` colado e gera o request
+  automaticamente).
+
+## Decisões técnicas — Backend
+
+- **Java 17 / Spring Boot 3.5**: versão estável mais recente compatível com
+  o range exigido pelo desafio (>= 3.5.0 no momento da geração do projeto
+  via Spring Initializr).
+- **MariaDB como banco principal, H2 apenas em testes**: o enunciado original
+  aceitava H2 em memória, mas o candidato pediu persistência real em MariaDB.
+  A troca ficou restrita à camada de configuração/driver — `pom.xml` passou a
+  trazer `mariadb-java-client` no `runtime` (H2 permanece, mas com escopo
+  `test`), e `application.yml` aponta para
+  `jdbc:mariadb://localhost:3306/pedidos_db` (sobrescrevível por
+  `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`, pensando em Docker Compose). Os testes
+  que sobem contexto Spring (`PedidosApiApplicationTests`) usam
+  `src/test/resources/application.yml`, que o Maven prioriza sobre o arquivo
+  de `main` no classpath de teste — nenhuma anotação de profile foi
+  necessária. `ddl-auto: update` continua sendo suficiente (sem Flyway/
+  Liquibase) dado o escopo do desafio; dados são populados pelo `DataSeeder`
+  (`CommandLineRunner`) apenas se a tabela estiver vazia.
+- **Regra de transição de status no enum** (`StatusPedido`) em vez de no
+  `Service`: mantém a regra de negócio como parte do próprio domínio, mais
+  fácil de testar isoladamente e impossível de "esquecer" de validar em um
+  novo ponto de entrada.
+- **Exceções de negócio dedicadas** (`LimiteExcedidoException`,
+  `TransicaoInvalidaException`, `PedidoNaoEncontradoException`,
+  `CredenciaisInvalidasException`) + `@RestControllerAdvice` centralizando o
+  mapeamento para os códigos HTTP exigidos (400/401/404/422), evitando
+  `try/catch` espalhado pelos controllers.
+- **Evolução para multiusuário + JWT completo**: a versão inicial do
+  desafio tinha um único usuário hardcoded (`app.security.admin-email`) e o
+  login não emitia token de verdade (`token: null`, documentado como algo a
+  implementar depois). Isso foi substituído por um modelo real: entidade
+  `Usuario` (nome, email único, senha com hash BCrypt) persistida no banco,
+  cadastro via `POST /api/auth/registrar`, e `POST /api/auth/login`
+  retornando um JWT de verdade. O `DataSeeder` continua criando o usuário
+  de demonstração (`admin@pedidos.com`/`admin123`) na primeira subida, para
+  não quebrar os fluxos e a documentação já existentes.
+- **Regra de senha: mínimo 8 caracteres**: sem exigir a combinação
+  "maiúscula+número+símbolo" comum em formulários corporativos, que na
+  prática empurra os usuários a padrões previsíveis (`Senha123!`) e não
+  melhora muito a segurança real. Um mínimo de 8 caracteres, combinado com
+  hashing BCrypt (fator de custo adaptativo, resistente a força bruta),
+  cobre razoavelmente bem o risco para o escopo deste desafio. Validado no
+  DTO (`RegistroRequest`) com Bean Validation, mesma abordagem usada nos
+  outros campos do sistema.
+- **Cadastro loga automaticamente (retorna JWT)**: escolhido em vez de
+  redirecionar para uma tela de login separada — evita pedir a mesma senha
+  duas vezes em sequência (o usuário acabou de digitá-la no cadastro) e
+  reduz o número de passos entre "criar conta" e "usar o sistema".
+- **JWT via `io.jsonwebtoken` (jjwt), assinatura HS256, expiração de 1
+  hora**: o token carrega apenas `sub` (email do usuário) e `exp` — nenhum
+  dado mutável (nome, senha) entra no payload, então o token não fica
+  desatualizado se esses dados mudarem depois. 1 hora foi escolhido como
+  meio-termo: curto o suficiente para limitar o estrago de um token vazado,
+  longo o suficiente para não forçar login repetido durante o uso normal do
+  sistema num desafio técnico (sem fluxo de refresh token, que ficou fora do
+  escopo). O segredo de assinatura vem de `app.security.jwt-secret`
+  (default de desenvolvimento no `application.yml`, sobrescrevível pela
+  variável de ambiente `JWT_SECRET` — nunca deve ser o mesmo valor em
+  produção).
+- **`JwtAuthenticationFilter` + `JwtAuthenticationEntryPoint`**: um
+  `OncePerRequestFilter` valida o header `Authorization: Bearer <token>`,
+  carrega o `Usuario` correspondente e o define como principal no
+  `SecurityContext` (usado depois via `@AuthenticationPrincipal Usuario` nos
+  controllers). Token ausente, inválido, expirado, ou de um usuário que não
+  existe mais: o contexto simplesmente fica vazio, e quem transforma isso em
+  `401` é a regra `anyRequest().authenticated()` do `SecurityConfig`, com o
+  `JwtAuthenticationEntryPoint` formatando a resposta no mesmo padrão JSON
+  do `GlobalExceptionHandler`. `/api/auth/**`, `/actuator/**` e o Swagger
+  continuam públicos.
+- **Autorização por usuário no `PedidoService`**: todos os métodos passaram
+  a receber `usuarioId` explicitamente (nunca lido de um campo do
+  request/DTO) e usam `findByUsuarioId`/`findByIdAndUsuarioId`/
+  `countByUsuarioId` no lugar das antigas queries globais — ver seção
+  [Autorização por usuário (multi-tenant)](#autorização-por-usuário-multi-tenant)
+  para o raciocínio do 404 em vez de 403.
+- **Peso em gramas na API**: mantém a API consistente com o seed fornecido
+  no enunciado (`"peso": 1024`); a conversão para kg é responsabilidade da
+  apresentação (`PedidoResponse.pesoKg` no backend e o formulário de
+  cadastro no frontend).
+- **Logs estruturados via SLF4J/Logback**: `INFO` para criação, mudança de
+  status, exclusão e login bem-sucedido; `WARN` para tentativas de login
+  inválidas, limite de pedidos excedido e transições de status inválidas;
+  `ERROR` reservado para exceções não mapeadas (handler genérico no
+  `GlobalExceptionHandler`).
+- **Testes**: `StatusPedidoTest` (parametrizado, 9 combinações de transição),
+  `PedidoServiceTest` (Mockito; limite de 5 **por usuário**, isolamento
+  entre usuários — pedido de um não aparece/edita para o outro — transições
+  válidas/inválidas, pedido inexistente), `AuthServiceTest` (registro,
+  email duplicado, login com credenciais corretas/incorretas) e
+  `JwtServiceTest` (geração/validação de token, expiração, segredo
+  incorreto). 28 testes no total.
+
+## Decisões técnicas — Frontend
+
+- **Standalone components (sem NgModules)**: Angular 17 permite dispensar
+  `NgModule` em favor de componentes standalone com `imports` próprios. Optei
+  por esse modelo (em vez de módulos tradicionais) porque reduz boilerplate,
+  deixa explícito no topo de cada componente quais dependências ele usa, e é
+  a direção recomendada pelo próprio time do Angular a partir da v17.
+- **Angular Material**: escolhido para formulários, tabela, cards, snackbar
+  e diálogo de confirmação — cobre a maior parte da UI exigida (login,
+  tabela de pedidos, cadastro) sem precisar escrever CSS de componente do
+  zero, e tem boa integração com Reactive Forms (`mat-error`, estados de
+  validação).
+- **ng2-charts + Chart.js** para os gráficos do dashboard (barras de
+  status e pizza de limite): é a integração mais madura de Chart.js com
+  Angular, com `BaseChartDirective` standalone-friendly.
+- **Fallback de cadastro em LocalStorage** (`PedidoService`): ao tentar criar
+  um pedido, se a chamada `POST` falhar por indisponibilidade da API (status
+  HTTP `0`, isto é, erro de rede/CORS/conexão recusada — não uma resposta de
+  negócio como 400/422), o pedido é salvo em `localStorage` com um id
+  `local-<timestamp>` e status `EM_PROCESSAMENTO`, e a listagem/dashboard
+  passam a exibi-lo mesclado com os pedidos vindos da API. Erros reais da API
+  (validação, limite de 5, transição inválida) **não** acionam esse fallback
+  — são propagados normalmente para o formulário exibir a mensagem correta.
+  Ações subsequentes (mudar status, excluir) sobre um pedido criado
+  offline são resolvidas localmente, sem tentar chamar a API para um id que
+  ela não conhece. Limitação assumida: se a API cair, o limite de 5 pedidos
+  passa a ser validado contra o último total conhecido em memória
+  (`pedidos$`), não contra o servidor (que está inacessível).
+- **Máquina de transição de status duplicada no frontend**
+  (`podeTransicionar` em `pedido.model.ts`): necessária tanto para
+  habilitar/desabilitar os botões de ação na listagem quanto para validar
+  pedidos criados offline (fallback acima) sem depender de round-trip com o
+  backend. Mantida como uma função pura simples, espelhando
+  `StatusPedido#podeTransicionarPara` do backend, para reduzir o risco de
+  divergência.
+- **Peso digitado em kg no formulário, convertido para gramas no envio**: o
+  enunciado deixou a unidade do campo do formulário em aberto
+  ("salvo em gramas, exibido em kg"); optei por pedir o valor em kg no
+  cadastro (mais natural para o usuário final de um sistema de e-commerce) e
+  converter para gramas (`Math.round(pesoKg * 1000)`) antes do `POST`,
+  mantendo a API sempre em gramas.
+- **Login e cadastro na mesma tela, com `mat-button-toggle-group` como
+  seletor**: em vez de duas rotas separadas, um único componente
+  (`LoginComponent`) alterna entre dois `FormGroup` independentes
+  (`formLogin`/`formCadastro`) trocando apenas o template exibido — evita
+  navegação/reload ao alternar entre "Entrar" e "Criar conta". Optei por
+  `mat-button-toggle-group` (visualmente um segmented control) em vez de
+  `mat-radio-group` porque o enunciado pediu explicitamente para fugir da
+  aparência de radio buttons padrão.
+- **Token em `sessionStorage`, não `localStorage`**: `sessionStorage` expira
+  junto com a aba/sessão do navegador, reduzindo a janela de exposição do
+  token comparado a `localStorage` (que persiste indefinidamente até ser
+  limpo manualmente). A alternativa genuinamente mais segura seria um cookie
+  `httpOnly` setado pelo backend no login — inacessível a JavaScript e
+  portanto imune a roubo via XSS, ao contrário de qualquer Web Storage, que
+  qualquer script rodando na página pode ler. Não adotei essa alternativa
+  neste desafio porque exigiria: (a) o backend responder com
+  `Set-Cookie` em vez de JSON, (b) `withCredentials`/`allowCredentials` no
+  CORS (já parcialmente configurado, mas precisaria de ajuste fino), e
+  (c) proteção CSRF (cookies são enviados automaticamente pelo navegador em
+  qualquer requisição para o domínio, diferente de um header `Authorization`
+  que só vai se o código do frontend explicitamente adicionar) — um escopo
+  maior do que o pedido aqui.
+- **`AuthService` central + `authGuard` funcional + `authInterceptor`
+  funcional**: seguindo o padrão do Angular 17 (`CanActivateFn`/
+  `HttpInterceptorFn` em vez das classes `CanActivate`/`HttpInterceptor` do
+  Angular clássico), mais simples de testar (funções puras com `inject()`) e
+  sem precisar declarar providers adicionais além de
+  `withInterceptors([...])`. O guard verifica localmente se o token existe e
+  não expirou (decodificando o payload do JWT, sem validar assinatura — isso
+  é sempre responsabilidade do backend); o interceptor anexa o header em
+  toda chamada para a API e, se o backend responder `401` (token realmente
+  inválido/expirado do lado do servidor, ou revogado), limpa a sessão e
+  redireciona para `/login` — cobre o caso do relógio do navegador dizer que
+  o token ainda vale, mas o backend já não aceitar mais.
+- **Identidade visual própria — paleta da Claro (vermelho + branco)**:
+  primeira versão usava uma paleta teal+laranja só para fugir do
+  indigo/roxo padrão do Material; a pedido do usuário, a paleta final adota
+  as cores da marca Claro (vermelho `#e4002b` predominante, branco/cinza
+  claro de fundo). Como o Material exige um mapa de 14 tons (50–900 +
+  A100–A700 + contraste) para calcular corretamente estados de hover/
+  disabled, esses tons foram derivados por interpolação a partir do
+  vermelho de marca (`$claro-red` em `styles.scss`) em vez de usar
+  `mat.$red-palette` (um vermelho genérico do Material, não o tom exato da
+  Claro). O cinza escuro (`mat.$grey-palette`) foi mantido como cor de
+  destaque secundária para não transformar toda ação em vermelho — botões
+  de ação primária usam o vermelho de marca, o resto do app permanece
+  predominantemente branco/neutro. Tipografia trocada de Roboto para
+  Manrope, com uma escala clara de título/subtítulo/corpo
+  (`.titulo-pagina`/`.subtitulo-pagina` em vez de texto corrido uniforme);
+  cantos maiores e sombras mais suaves nos cards/botões (`--raio-card`,
+  `--raio-botao`, `--sombra-card` como CSS custom properties, sobrescrevendo
+  os estilos padrão do `mat-mdc-card`/`mat-mdc-*-button`); cores de status
+  (`--status-em-processamento`, `--status-pausado`, `--status-cancelado`)
+  definidas como variáveis CSS próprias, independentes da paleta do
+  Material, usadas nos badges coloridos da listagem e nos gráficos do
+  dashboard — o mesmo significado de cor em qualquer lugar do app que exiba
+  um status.
+- **Cards de resumo no dashboard** (total de pedidos, em processamento,
+  peso total, itens totais): complementam os gráficos com números diretos,
+  sem precisar interpretar um gráfico para responder "quantos pedidos eu
+  tenho mesmo".
+- **Estados vazio/carregando/API indisponível tratados explicitamente**: a
+  listagem e o dashboard mostram um spinner enquanto carregam, uma
+  ilustração + CTA ("Cadastrar o primeiro pedido") quando não há nenhum
+  pedido, e um aviso (`apiIndisponivel`, alimentado por
+  `PedidoService.apiDisponivel$`) quando o último carregamento caiu no
+  fallback local — em vez de simplesmente mostrar uma tabela vazia sem
+  explicação.
+- **Atrito do fluxo de criação**: do dashboard vazio até o primeiro pedido
+  cadastrado são 2 cliques ("Cadastrar o primeiro pedido" → preencher e
+  salvar); o aviso de limite de 5 atingido (tanto na listagem quanto no
+  formulário) explica o "porquê" e oferece uma ação concreta ("Ver meus
+  pedidos", para excluir/finalizar algo), em vez de só bloquear o botão sem
+  explicação.
+
+## Validação realizada
+
+O ambiente de execução usado para construir este projeto não tinha acesso a
+um navegador interativo (extensão Chrome não conectada), então a validação
+ponta a ponta foi feita por meios automatizados/equivalentes, não
+visualmente:
+
+- Backend: bateria de `curl` cobrindo seed, login (sucesso/falha), registro
+  (sucesso com login automático, email duplicado, senha curta), listagem,
+  criação (com e sem exceder o limite de 5 **por usuário**), transições
+  válidas/inválidas, exclusão, acesso sem token (401), token inválido (401),
+  acesso cross-user a pedido de outro usuário (404), e um preflight
+  `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
+  como o navegador exigiria.
+- Backend: 28 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+  incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`)
+  rodando contra H2.
+- Frontend: `ng build` (dev e produção) sem erros; 30 testes Jasmine/Karma
+  (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
+  de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
+  redireciona), o `authInterceptor` (anexa token, reage a 401) e o
+  `AuthService` (sessão em `sessionStorage`, expiração de token).
+- Verificado que o `ng serve` já em execução recompilou automaticamente
+  (watch mode) e está servindo o bundle atualizado (strings como
+  `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).
+
+**Recomendação**: antes de considerar o fluxo 100% validado, abra
+`http://localhost:4200` em um navegador e percorra manualmente
+login/cadastro → dashboard → listagem → cadastro de pedido → mudança de
+status → exclusão → logout → tentativa de acessar `/dashboard` sem estar
+logado (deve redirecionar para `/login`).
+
+## O que eu faria diferente com mais tempo
+
+- **Refresh token**: hoje o JWT expira em 1h e o usuário precisa logar de
+  novo — um fluxo de refresh token (com rotação e revogação) evitaria isso
+  sem aumentar a janela de exposição de um token de acesso de vida longa.
+- **Cookie `httpOnly` em vez de `sessionStorage`**: a proteção real contra
+  roubo de token via XSS, discutida na seção de decisões técnicas do
+  frontend — ficou fora do escopo por exigir mudanças de CORS/CSRF.
+- **Rate limiting em `/api/auth/login` e `/api/auth/registrar`**: hoje nada
+  impede tentativas de força bruta contra o login ou criação em massa de
+  contas; um limitador (ex: Bucket4j, ou um proxy como Nginx/API Gateway na
+  frente) fecharia essa lacuna.
+- **Verificação de email no cadastro**: hoje qualquer email "com formato
+  válido" é aceito sem confirmar que o dono realmente tem acesso a ele.
+- **Migrações versionadas (Flyway/Liquibase)**: `ddl-auto: update` é
+  suficiente para o escopo do desafio, mas não seria adequado em produção —
+  não há histórico/rollback de mudanças de schema.
+- **Testes end-to-end de verdade (Cypress/Playwright)**: o ambiente usado
+  para construir este projeto não tinha acesso a um navegador interativo,
+  então a validação do frontend ficou nos testes unitários (Jasmine/Karma) +
+  validação manual do backend via curl/Postman. Um suite E2E cobrindo os
+  fluxos completos (login → cadastro de pedido → mudança de status →
+  logout) daria mais confiança do que a combinação atual.
+- **MariaDB containerizado no Docker Compose**: por pedido do usuário, o
+  MariaDB usado neste desafio é uma instância local (fora do Compose); para
+  um ambiente "suba tudo com um comando" de verdade, valeria adicionar um
+  serviço `mariadb` ao `docker-compose.yml` com volume persistente,
+  documentando a migração de `localhost:3306` para o hostname do serviço.
+- **Paginação/filtro na listagem de pedidos**: pouco relevante hoje (limite
+  de 5 por usuário garante que a tabela nunca cresce muito), mas seria
+  necessário se esse limite mudasse ou se a listagem precisasse mostrar
+  pedidos de outros períodos/arquivados no futuro.
+- **Observabilidade completa (Prometheus/Grafana)**: ainda pendente neste
+  projeto — ver checklist de status no topo do README.

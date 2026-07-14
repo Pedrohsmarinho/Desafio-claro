@@ -21,7 +21,7 @@
 |---|---|---|
 | 1 | Autenticação JWT retornada no login | ✅ Completo — e ampliado além do pedido original: cadastro de usuários (`POST /api/auth/registrar`), modelo multi-tenant (pedidos isolados por usuário), autorização (404 em vez de 403 para recurso de outro usuário) |
 | 2 | Micrometer + Prometheus (`micrometer-registry-prometheus`, endpoint `/actuator/prometheus`) | ✅ Completo |
-| 3 | Métricas de negócio customizadas (`pedidos_total`, `pedidos_by_status{status}`) | ✅ Completo — e ampliado: `pedidos_peso_total_gramas` e `pedidos_itens` também, alimentando o dashboard de negócio no Grafana |
+| 3 | Métricas de negócio customizadas (`pedidos_total`, `pedidos_by_status{status}`) | ✅ Completo — e ampliado: `pedidos_peso_total_gramas` e `pedidos_itens` também, alimentando o dashboard único do Grafana |
 
 ## Frontend — Telas obrigatórias
 
@@ -39,7 +39,7 @@
 | 1 | Route Guard (`CanActivate`) protegendo rotas internas | ✅ Completo (`authGuard`, funcional, padrão Angular 17) |
 | 2 | HTTP Interceptor anexando o token JWT automaticamente | ✅ Completo (`authInterceptor`; também trata 401 limpando sessão e redirecionando) |
 | 3 | Mensagens de validação campo a campo no cadastro | ✅ Completo (login, cadastro de usuário e cadastro de pedido) |
-| 4 | Cards de resumo no dashboard (total de pedidos, em processamento, peso total, itens totais) | ✅ Completo — no frontend **e** espelhado num dashboard Grafana dedicado |
+| 4 | Cards de resumo no dashboard (total de pedidos, em processamento, peso total, itens totais) | ✅ Completo — no frontend **e** espelhado no dashboard único do Grafana |
 | 5 | Badge colorido por status (verde/amarelo/vermelho) na listagem | ✅ Completo (cores semânticas próprias, independentes da paleta de marca) |
 | 6 | Filtro por status e busca por nome do cliente | ✅ Completo (`MatTableDataSource`, filtro combinado status + busca) |
 | 7 | Feedback de carregamento (spinner) durante envios | ✅ Completo (login, cadastro, listagem, dashboard) |
@@ -76,7 +76,7 @@
 - **Identidade visual da Claro**: paleta vermelho/branco própria, tipografia Manrope, estados vazio/carregando/erro tratados
 - **Gitflow**: `main`/`develop`, convenção `feature/`/`release/`/`hotfix/`, Conventional Commits, proteção de branch, release `v1.0.0`
 - **Observabilidade completa (stack LGTM)**: além do Prometheus (métricas), o Grafana também tem **Loki** (logs centralizados de todos os containers via Promtail) e **Tempo** (tracing distribuído via Micrometer Tracing + OTLP, com spans automáticos do Spring Security/MVC) — logs e traces correlacionados bidirecionalmente (`traceId` no log linka pro trace no Tempo, e vice-versa)
-- **Dois dashboards Grafana**: "Pedidos API - Visão Geral" (req/s por endpoint, latência, memória JVM, erros 4xx/5xx) e "Pedidos - Negócio & Saúde" (cards de resumo, indicador de saúde, disponibilidade, logs em tempo real)
+- **Um único dashboard Grafana** "Pedidos API - Visão Geral e Saúde": cards de resumo, indicador de saúde, disponibilidade e logs em tempo real, junto com as métricas técnicas (req/s por endpoint, latência, memória JVM, erros 4xx/5xx) — tudo num só lugar, sem precisar trocar de dashboard
 
 ## Resumo do que falta
 

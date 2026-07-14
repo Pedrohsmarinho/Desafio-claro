@@ -46,8 +46,9 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
       tabela, indicador de saúde da API (`/actuator/health`), polling no
       dashboard.
 - [x] Docker Compose completo (backend, frontend, Prometheus, **Loki, Tempo**,
-      Grafana) com tracing distribuído, logs centralizados e 2 dashboards
-      provisionados automaticamente (visão técnica + negócio/saúde).
+      Grafana) com tracing distribuído, logs centralizados e um único
+      dashboard provisionado automaticamente (negócio, saúde e visão técnica
+      juntos).
 - [x] Commits no Git organizados por Gitflow (`main`/`develop`,
       Conventional Commits), release `v1.0.0` taggeada, proteção de branch
       na `main` (PR obrigatório, sem force-push, `enforce_admins`), tudo
@@ -123,19 +124,22 @@ docker compose up -d
 | Tempo | http://localhost:3200 (sem UI própria; consultado via Grafana) |
 | Grafana | http://localhost:3000 (usuário `admin`, senha `admin`) |
 
-Dois dashboards já vêm provisionados automaticamente no Grafana (login →
-Dashboards):
+Um único dashboard **"Pedidos API - Visão Geral e Saúde"** já vem
+provisionado automaticamente no Grafana (login → Dashboards), reunindo
+negócio, saúde e métricas técnicas no mesmo lugar em vez de espalhar por
+telas diferentes:
 
-- **"Pedidos API - Visão Geral"**: requisições/s por endpoint, latência
-  média, memória JVM (heap) e taxa de erros 4xx/5xx (métricas técnicas,
-  via Prometheus).
-- **"Pedidos - Negócio & Saúde"**: cards de resumo (total de pedidos, em
-  processamento, peso total em kg, itens totais), indicador de saúde da
-  API (via a métrica `up`, que o Prometheus gera automaticamente a cada
-  scrape — reflete o mesmo `/actuator/health` consumido no frontend),
-  gráfico de disponibilidade nas últimas 6h, e um **painel de logs em
-  tempo real do backend** (via Loki/Promtail). Atualiza sozinho a cada
-  10s (`refresh: 10s` no próprio dashboard).
+- **Cards de resumo**: total de pedidos, em processamento, peso total em
+  kg e itens totais (mesmas métricas de negócio dos cards do frontend).
+- **Saúde da API**: indicador via a métrica `up` (que o Prometheus gera
+  automaticamente a cada scrape — reflete o mesmo `/actuator/health`
+  consumido no frontend), com gráfico de disponibilidade na última hora.
+- **Métricas técnicas**: requisições/s por endpoint, latência média,
+  memória JVM (heap) e taxa de erros 4xx/5xx.
+- **Painel de logs em tempo real do backend** (via Loki/Promtail), na
+  parte de baixo do dashboard.
+
+Atualiza sozinho a cada 10s (`refresh: 10s` no próprio dashboard).
 
 Cada log do backend carrega `traceId`/`spanId` (Micrometer Tracing), e o
 Grafana está configurado para correlacionar automaticamente: no painel de
@@ -290,9 +294,9 @@ Métricas de negócio customizadas:
   sem precisar instrumentar manualmente cada operação do service.
 - **`pedidos_peso_total_gramas`** e **`pedidos_itens`** (Gauges): soma do
   peso e da quantidade de itens de todos os pedidos cadastrados agora —
-  alimentam diretamente os cards de resumo do dashboard "Pedidos - Negócio
-  & Saúde" no Grafana (mesmo dado que os cards de resumo do frontend
-  mostram, só que visto pela ótica de infraestrutura/operação).
+  alimentam diretamente os cards de resumo do dashboard "Pedidos API -
+  Visão Geral e Saúde" no Grafana (mesmo dado que os cards de resumo do
+  frontend mostram, só que visto pela ótica de infraestrutura/operação).
 - Todas essas métricas são **globais** (somam todos os usuários) — fazem
   sentido como indicador de saúde/uso geral da operação, ao contrário do
   limite de 5 pedidos (que é por usuário, uma regra de negócio da API, não

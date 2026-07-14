@@ -21,6 +21,34 @@
   border-radius: var(--raio-botao);
 }
 
+.indicador-saude {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-right: 8px;
+  opacity: 0.9;
+
+  .ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  &.up .ponto {
+    background: #4caf50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+  }
+
+  &.down .ponto {
+    background: #ffca28;
+    box-shadow: 0 0 0 2px rgba(255, 202, 40, 0.3);
+  }
+}
+
 .page-content {
   max-width: 1200px;
   margin: 0 auto;

@@ -12,6 +12,15 @@
     <mat-icon>list_alt</mat-icon>
     Pedidos
   </a>
+  <span
+    class="indicador-saude"
+    [class.up]="(saudeApi$ | async) === 'up'"
+    [class.down]="(saudeApi$ | async) === 'down'"
+    [matTooltip]="rotuloSaude((saudeApi$ | async)!)"
+  >
+    <span class="ponto"></span>
+    API
+  </span>
   <button mat-button (click)="sair()">
     <mat-icon>logout</mat-icon>
     Sair

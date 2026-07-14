@@ -20,8 +20,8 @@
 | # | Item | Status |
 |---|---|---|
 | 1 | Autenticação JWT retornada no login | ✅ Completo — e ampliado além do pedido original: cadastro de usuários (`POST /api/auth/registrar`), modelo multi-tenant (pedidos isolados por usuário), autorização (404 em vez de 403 para recurso de outro usuário) |
-| 2 | Micrometer + Prometheus (`micrometer-registry-prometheus`, endpoint `/actuator/prometheus`) | ❌ Não feito |
-| 3 | Métricas de negócio customizadas (`pedidos_total`, `pedidos_by_status{status}`) | ❌ Não feito |
+| 2 | Micrometer + Prometheus (`micrometer-registry-prometheus`, endpoint `/actuator/prometheus`) | ✅ Completo |
+| 3 | Métricas de negócio customizadas (`pedidos_total`, `pedidos_by_status{status}`) | ✅ Completo — `pedidos_total` como `Counter` (cumulativo), `pedidos_by_status` como `Gauge` (estado atual) |
 
 ## Frontend — Telas obrigatórias
 
@@ -41,11 +41,11 @@
 | 3 | Mensagens de validação campo a campo no cadastro | ✅ Completo (login, cadastro de usuário e cadastro de pedido) |
 | 4 | Cards de resumo no dashboard (total de pedidos, em processamento, peso total, itens totais) | ✅ Completo |
 | 5 | Badge colorido por status (verde/amarelo/vermelho) na listagem | ✅ Completo (cores semânticas próprias, independentes da paleta de marca) |
-| 6 | Filtro por status e busca por nome do cliente | ❌ Não feito |
+| 6 | Filtro por status e busca por nome do cliente | ✅ Completo (`MatTableDataSource`, filtro combinado status + busca) |
 | 7 | Feedback de carregamento (spinner) durante envios | ✅ Completo (login, cadastro, listagem, dashboard) |
-| 8 | Atualização automática dos gráficos (polling ou Observable compartilhado) | 🟡 Parcial — usa Observable compartilhado (`PedidoService.pedidos$`), atualiza reativamente a qualquer ação CRUD; **não há polling** de fontes externas |
-| 9 | Indicador de saúde da API consumindo `/actuator/health` | 🟡 Parcial — há aviso de "API indisponível" na listagem, mas inferido a partir da falha do `GET /api/pedidos`, não consumindo `/actuator/health` diretamente |
-| 10 | Paginação ou ordenação da tabela | ❌ Não feito (limite de 5 pedidos por usuário reduz a necessidade prática) |
+| 8 | Atualização automática dos gráficos (polling ou Observable compartilhado) | ✅ Completo — Observable compartilhado (`PedidoService.pedidos$`) para ações na mesma aba **+ polling a cada 20s** no dashboard para mudanças externas |
+| 9 | Indicador de saúde da API consumindo `/actuator/health` | ✅ Completo — `HealthService` faz polling real do endpoint a cada 15s, indicador na toolbar (visível em toda a aplicação) |
+| 10 | Paginação ou ordenação da tabela | ✅ Completo (`MatSort` + `MatPaginator` na listagem) |
 
 ## Requisitos técnicos gerais
 
@@ -56,15 +56,16 @@
 | Gráficos via ng2-charts/Chart.js (com justificativa documentada) | ✅ Completo |
 | Docker Compose subindo frontend + backend + monitoramento | ❌ Não feito |
 | Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 28 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, contexto Spring) |
-| Testes Jasmine/Karma | ✅ Completo — 30 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`) |
+| Testes Jasmine/Karma | ✅ Completo — 38 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `HealthService`, filtro/busca da listagem) |
 
 ## Entregáveis finais
 
 | Item | Status |
 |---|---|
-| Repositório Git organizado (`backend`, `frontend`, `monitoring`, `docker-compose` na raiz) | 🟡 Estrutura pronta, mas **nenhum commit feito ainda** (`git log` vazio) |
+| Repositório Git organizado (`backend`, `frontend`, `monitoring`, `docker-compose` na raiz) | 🟡 Estrutura pronta, histórico local organizado em **Gitflow** (`main`/`develop`, 17 commits fragmentados por Conventional Commits) — **push para o GitHub ainda pendente** (falta autenticação HTTPS/SSH do usuário neste ambiente) |
 | README com instruções de execução, decisões técnicas e trade-offs | ✅ Completo (exceto a parte de execução via Docker, que depende do `docker-compose.yml` ainda não criado) |
 | README com "o que faria diferente com mais tempo" | ✅ Completo |
+| `CONTRIBUTING.md` com fluxo Gitflow e Conventional Commits | ✅ Completo |
 
 ## Além do escopo original (evoluções pedidas durante a conversa)
 
@@ -73,12 +74,10 @@
 - **Postman**: collection com exemplos/mocks, environment e script `curl-examples.sh`
 - **Multiusuário completo**: cadastro de usuários, isolamento de pedidos por usuário (limite de 5 por usuário, não global), autorização por JWT
 - **Identidade visual da Claro**: paleta vermelho/branco própria, tipografia Manrope, estados vazio/carregando/erro tratados
+- **Gitflow**: `main`/`develop`, convenção `feature/`/`release/`/`hotfix/`, Conventional Commits, histórico local fragmentado em 17 commits temáticos
 
 ## Resumo do que falta
 
-1. Métricas customizadas + Micrometer/Prometheus (`/actuator/prometheus`)
-2. Filtro por status e busca por nome na listagem
-3. Indicador de saúde da API consumindo `/actuator/health` diretamente
-4. Paginação/ordenação da tabela
-5. `docker-compose.yml` + stack de monitoramento (Prometheus/Grafana)
-6. **Commits no Git** — todo o trabalho até agora está sem histórico de versionamento
+1. `docker-compose.yml` + stack de monitoramento (Prometheus/Grafana)
+2. **Push para o GitHub** — histórico local pronto, falta o usuário autenticar (HTTPS token ou SSH) num terminal interativo de verdade
+3. Proteção de branch `main` no GitHub (diferencial, depende do push acontecer primeiro)

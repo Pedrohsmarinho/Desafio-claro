@@ -26,14 +26,16 @@ management:
   endpoints:
     web:
       exposure:
-        # prometheus é habilitado apenas quando o diferencial de observabilidade é implementado
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
   info:
     env:
       enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 info:
   app:

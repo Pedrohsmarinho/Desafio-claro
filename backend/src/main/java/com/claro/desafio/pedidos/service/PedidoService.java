@@ -7,6 +7,8 @@ import com.claro.desafio.pedidos.repository.PedidoRepository;
 import com.claro.desafio.pedidos.service.exception.LimiteExcedidoException;
 import com.claro.desafio.pedidos.service.exception.PedidoNaoEncontradoException;
 import com.claro.desafio.pedidos.service.exception.TransicaoInvalidaException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,15 +26,27 @@ import java.util.List;
  * PedidoController), nunca de parametro da requisicao.
  */
 @Service
-@RequiredArgsConstructor
 public class PedidoService {
 
     private static final Logger log = LoggerFactory.getLogger(PedidoService.class);
 
     private final PedidoRepository pedidoRepository;
+    private final Counter pedidosTotalCounter;
 
     @Value("${app.pedidos.limite-maximo}")
     private int limiteMaximo;
+
+    public PedidoService(PedidoRepository pedidoRepository, MeterRegistry meterRegistry) {
+        this.pedidoRepository = pedidoRepository;
+        // Counter (nao Gauge): pedidos_total representa quantos pedidos ja foram
+        // criados historicamente (metrica cumulativa, condizente com o sufixo
+        // "_total" do padrao Prometheus/OpenMetrics) - nao decresce com exclusoes,
+        // ao contrario de pedidos_by_status (ver PedidoMetrics), que reflete o
+        // estado atual e por isso e um Gauge.
+        this.pedidosTotalCounter = Counter.builder("pedidos_total")
+                .description("Total de pedidos criados (cumulativo, nao decresce com exclusoes)")
+                .register(meterRegistry);
+    }
 
     public List<Pedido> listarTodos(Long usuarioId) {
         return pedidoRepository.findByUsuarioId(usuarioId);
@@ -60,6 +74,7 @@ public class PedidoService {
         pedido.setUsuarioId(usuarioId);
 
         Pedido salvo = pedidoRepository.save(pedido);
+        pedidosTotalCounter.increment();
         log.info("Pedido criado: id={}, usuarioId={}, cliente='{}', itens={}, peso={}g, status={}",
                 salvo.getId(), usuarioId, salvo.getDisplayName(), salvo.getItens(), salvo.getPeso(), salvo.getStatus());
         return salvo;

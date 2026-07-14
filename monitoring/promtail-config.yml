@@ -1,0 +1,28 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  # Promtail roda com network_mode: host (assim como o Loki), entao
+  # "localhost" aqui e o host de verdade.
+  - url: http://localhost:3100/loki/api/v1/push
+
+scrape_configs:
+  # Descoberta dinamica via socket do Docker: acha todos os containers do
+  # compose e faz tail dos logs de cada um automaticamente (sem precisar
+  # listar servico por servico aqui).
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "^/(.*)$"
+        target_label: "container"
+      - source_labels: ["__meta_docker_container_log_stream"]
+        target_label: "stream"
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: "service"

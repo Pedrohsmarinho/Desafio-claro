@@ -55,7 +55,7 @@
 | Estilização (Angular Material customizado) | ✅ Completo |
 | Gráficos via ng2-charts/Chart.js (com justificativa documentada) | ✅ Completo |
 | Docker Compose subindo frontend + backend + monitoramento | ✅ Completo — validado de ponta a ponta (`docker compose up`) |
-| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 28 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, contexto Spring) |
+| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 35 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, `PedidoControllerSecurityTest` com contexto Spring completo e filtro de segurança real) |
 | Testes Jasmine/Karma | ✅ Completo — 38 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `HealthService`, filtro/busca da listagem) |
 
 ## Entregáveis finais

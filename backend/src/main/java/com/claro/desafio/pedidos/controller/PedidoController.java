@@ -1,0 +1,82 @@
+package com.claro.desafio.pedidos.controller;
+
+import com.claro.desafio.pedidos.domain.Pedido;
+import com.claro.desafio.pedidos.domain.Usuario;
+import com.claro.desafio.pedidos.dto.PedidoRequest;
+import com.claro.desafio.pedidos.dto.PedidoResponse;
+import com.claro.desafio.pedidos.dto.PedidoStatusUpdateRequest;
+import com.claro.desafio.pedidos.service.PedidoService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * O usuario dono dos pedidos e sempre o principal autenticado (injetado pelo
+ * Spring Security a partir do JWT via JwtAuthenticationFilter) - nunca um
+ * usuarioId vindo do corpo, path ou query da requisicao. Isso evita que um
+ * usuario manipule pedidos de outro trocando um id na URL.
+ */
+@RestController
+@RequestMapping("/api/pedidos")
+@RequiredArgsConstructor
+@Tag(name = "Pedidos", description = "Cadastro, consulta, mudanca de status e exclusao de pedidos do usuario autenticado")
+public class PedidoController {
+
+    private final PedidoService pedidoService;
+
+    @GetMapping
+    @Operation(summary = "Lista os pedidos do usuario autenticado")
+    public List<PedidoResponse> listar(@AuthenticationPrincipal Usuario usuario) {
+        return pedidoService.listarTodos(usuario.getId()).stream()
+                .map(PedidoResponse::from)
+                .toList();
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Cadastra um novo pedido para o usuario autenticado (status inicial sempre EM_PROCESSAMENTO)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Pedido criado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados invalidos (ex: nome com menos de 5 caracteres)"),
+            @ApiResponse(responseCode = "422", description = "Limite maximo de 5 pedidos (do usuario) foi atingido"),
+    })
+    public PedidoResponse criar(@Valid @RequestBody PedidoRequest request, @AuthenticationPrincipal Usuario usuario) {
+        Pedido pedido = pedidoService.criar(request, usuario.getId());
+        return PedidoResponse.from(pedido);
+    }
+
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Altera o status de um pedido do usuario autenticado, respeitando a maquina de transicoes")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Status alterado com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Pedido nao encontrado (ou pertence a outro usuario)"),
+            @ApiResponse(responseCode = "422", description = "Transicao de status invalida para o estado atual"),
+    })
+    public PedidoResponse alterarStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody PedidoStatusUpdateRequest request,
+            @AuthenticationPrincipal Usuario usuario) {
+        Pedido pedido = pedidoService.alterarStatus(id, request.status(), usuario.getId());
+        return PedidoResponse.from(pedido);
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Exclui um pedido do usuario autenticado")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Pedido excluido com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Pedido nao encontrado (ou pertence a outro usuario)"),
+    })
+    public ResponseEntity<Void> excluir(@PathVariable Long id, @AuthenticationPrincipal Usuario usuario) {
+        pedidoService.excluir(id, usuario.getId());
+        return ResponseEntity.noContent().build();
+    }
+}

@@ -1,11 +1,11 @@
 {
-  "title": "Pedidos - Negócio & Saúde",
-  "uid": "pedidos-negocio-saude",
+  "title": "Pedidos API - Visão Geral e Saúde",
+  "uid": "pedidos-overview",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "10s",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": { "from": "now-1h", "to": "now" },
   "panels": [
     {
       "id": 1,
@@ -137,7 +137,7 @@
     },
     {
       "id": 7,
-      "title": "Disponibilidade da API (últimas 6h)",
+      "title": "Disponibilidade da API (última 1h)",
       "type": "timeseries",
       "gridPos": { "h": 5, "w": 12, "x": 12, "y": 5 },
       "fieldConfig": {
@@ -152,9 +152,87 @@
     },
     {
       "id": 8,
+      "title": "Requisições/s por endpoint",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"pedidos-api\"}[1m])) by (uri)",
+          "legendFormat": "{{uri}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Latência média",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_sum{application=\"pedidos-api\"}[1m])) / sum(rate(http_server_requests_seconds_count{application=\"pedidos-api\"}[1m]))",
+          "legendFormat": "latência média",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Memória JVM (heap)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(jvm_memory_used_bytes{application=\"pedidos-api\", area=\"heap\"}) by (id)",
+          "legendFormat": "{{id}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(jvm_memory_max_bytes{application=\"pedidos-api\", area=\"heap\"})",
+          "legendFormat": "máximo",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Taxa de erros 4xx / 5xx",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"pedidos-api\", status=~\"4..\"}[1m]))",
+          "legendFormat": "4xx",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"pedidos-api\", status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 12,
       "title": "Logs do backend (tempo real, via Loki/Promtail)",
       "type": "logs",
-      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 26 },
       "datasource": { "type": "loki", "uid": "loki" },
       "options": {
         "showTime": true,

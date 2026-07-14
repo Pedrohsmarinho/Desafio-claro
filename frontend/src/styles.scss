@@ -1,0 +1,135 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+// Paleta da marca Claro: vermelho como cor predominante + branco, em vez de
+// uma paleta genérica do Material. Como o Material exige um mapa de tons
+// completo (50-900 + A100-A700 + contraste) para gerar variações corretas
+// de hover/disabled/etc., a escala abaixo foi derivada por interpolação a
+// partir do vermelho de marca (#E4002B) em vez de usar mat.$red-palette
+// (que é um vermelho material genérico, não o tom exato da Claro).
+$claro-red: (
+  50: #fef2f4,
+  100: #fbd9df,
+  200: #f7b3bf,
+  300: #f38ca0,
+  400: #ed5975,
+  500: #e4002b,
+  600: #cd0027,
+  700: #b60022,
+  800: #a0001e,
+  900: #7d0018,
+  A100: #ff8a94,
+  A200: #ff5260,
+  A400: #ff172b,
+  A700: #db0020,
+  contrast: (
+    50: rgba(black, 0.87),
+    100: rgba(black, 0.87),
+    200: rgba(black, 0.87),
+    300: rgba(black, 0.87),
+    400: white,
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+    A100: rgba(black, 0.87),
+    A200: white,
+    A400: white,
+    A700: white,
+  ),
+);
+
+$pedidos-primary: mat.define-palette($claro-red, 500, 300, 700);
+$pedidos-accent: mat.define-palette(mat.$grey-palette, 800, 400, 900);
+$pedidos-warn: mat.define-palette($claro-red, 700);
+
+$pedidos-typography: mat.define-typography-config(
+  $font-family: '"Manrope", "Helvetica Neue", sans-serif',
+);
+
+$pedidos-theme: mat.define-light-theme((
+  color: (
+    primary: $pedidos-primary,
+    accent: $pedidos-accent,
+    warn: $pedidos-warn,
+  ),
+  typography: $pedidos-typography,
+  density: -1,
+));
+
+@include mat.all-component-themes($pedidos-theme);
+
+:root {
+  // Vermelho e branco da Claro como identidade predominante da aplicação.
+  --cor-marca: #e4002b;
+  --cor-marca-escura: #a0001e;
+  --cor-destaque: #2b2b2b;
+  --cor-fundo: #fafafa;
+  --cor-superficie: #ffffff;
+  --cor-texto: #1c1c1c;
+  --cor-texto-suave: #6b6b6b;
+
+  // Cores semânticas por status de pedido — deliberadamente independentes
+  // da paleta de marca (usadas direto em CSS custom properties, não em
+  // "color: primary/accent/warn"), para que o significado de cada cor seja
+  // sempre o mesmo em qualquer componente que exiba um status, sem se
+  // confundir com o vermelho de marca (o status CANCELADO usa um tom de
+  // vermelho propositalmente diferente do vermelho da Claro).
+  --status-em-processamento: #1d6fa5;
+  --status-em-processamento-bg: #e3f1fa;
+  --status-pausado: #b9781a;
+  --status-pausado-bg: #fbf0dd;
+  --status-cancelado: #8f2323;
+  --status-cancelado-bg: #f7e2e2;
+
+  --raio-card: 14px;
+  --raio-botao: 10px;
+  --sombra-card: 0 1px 2px rgba(28, 28, 28, 0.06), 0 4px 12px rgba(28, 28, 28, 0.05);
+  --sombra-card-hover: 0 2px 4px rgba(28, 28, 28, 0.08), 0 8px 20px rgba(28, 28, 28, 0.08);
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: "Manrope", "Helvetica Neue", sans-serif;
+  background-color: var(--cor-fundo);
+  color: var(--cor-texto);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+// Hierarquia tipográfica própria, usada nos títulos/subtítulos das telas
+// (ver dashboard, listagem, cadastro) em vez do texto corrido uniforme.
+.titulo-pagina {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px;
+  color: var(--cor-texto);
+}
+
+.subtitulo-pagina {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--cor-texto-suave);
+  margin: 0 0 24px;
+}
+
+// Overrides globais de forma/densidade do Material para sair do "exemplo
+// copiado da documentação": cantos maiores nos cards, botões com cantos
+// própios e leve peso extra na fonte, sombra mais suave e difusa.
+.mat-mdc-card {
+  border-radius: var(--raio-card) !important;
+  box-shadow: var(--sombra-card) !important;
+  transition: box-shadow 0.2s ease;
+}
+
+.mat-mdc-raised-button, .mat-mdc-unelevated-button, .mat-mdc-outlined-button {
+  border-radius: var(--raio-botao) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em;
+}

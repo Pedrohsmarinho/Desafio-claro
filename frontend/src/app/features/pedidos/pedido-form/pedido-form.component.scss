@@ -1,0 +1,34 @@
+.header {
+  margin-bottom: 8px;
+}
+
+.form-card {
+  max-width: 480px;
+  margin-top: 16px;
+}
+
+.full-width {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.erro-limite {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--status-cancelado);
+  background: var(--status-cancelado-bg);
+  padding: 16px;
+  border-radius: var(--raio-card);
+  margin-bottom: 16px;
+
+  p {
+    margin: 4px 0 12px;
+    color: var(--cor-texto);
+  }
+}
+
+.erro-envio {
+  color: var(--status-cancelado);
+  font-size: 0.875rem;
+}

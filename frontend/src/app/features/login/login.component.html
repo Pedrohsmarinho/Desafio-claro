@@ -1,0 +1,113 @@
+<div class="login-wrapper">
+  <mat-card class="login-card">
+    <mat-card-header>
+      <mat-card-title>Gestão de Pedidos</mat-card-title>
+      <mat-card-subtitle>Entre com sua conta ou crie uma nova para continuar</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <mat-button-toggle-group
+        class="seletor-modo"
+        [value]="modo"
+        (change)="selecionarModo($event.value)"
+      >
+        <mat-button-toggle value="login">Entrar</mat-button-toggle>
+        <mat-button-toggle value="cadastro">Criar conta</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      @if (modo === 'login') {
+        <form class="form-transicao" [formGroup]="formLogin" (ngSubmit)="entrar()">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" placeholder="voce@exemplo.com" />
+            @if (formLogin.get('email')?.hasError('required') && formLogin.get('email')?.touched) {
+              <mat-error>Email é obrigatório</mat-error>
+            }
+            @if (formLogin.get('email')?.hasError('email') && formLogin.get('email')?.touched) {
+              <mat-error>Informe um email válido</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Senha</mat-label>
+            <input matInput type="password" formControlName="senha" />
+            @if (formLogin.get('senha')?.hasError('required') && formLogin.get('senha')?.touched) {
+              <mat-error>Senha é obrigatória</mat-error>
+            }
+          </mat-form-field>
+
+          @if (erroLogin) {
+            <p class="erro">{{ erroLogin }}</p>
+          }
+
+          <button
+            mat-raised-button
+            color="primary"
+            type="submit"
+            class="full-width"
+            [disabled]="formLogin.invalid || carregandoLogin"
+          >
+            @if (carregandoLogin) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              Entrar
+            }
+          </button>
+        </form>
+      } @else {
+        <form class="form-transicao" [formGroup]="formCadastro" (ngSubmit)="criarConta()">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Nome</mat-label>
+            <input matInput formControlName="nome" placeholder="Seu nome completo" />
+            @if (formCadastro.get('nome')?.hasError('required') && formCadastro.get('nome')?.touched) {
+              <mat-error>Nome é obrigatório</mat-error>
+            }
+            @if (formCadastro.get('nome')?.hasError('minlength') && formCadastro.get('nome')?.touched) {
+              <mat-error>Nome deve ter ao menos 3 caracteres</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" placeholder="voce@exemplo.com" />
+            @if (formCadastro.get('email')?.hasError('required') && formCadastro.get('email')?.touched) {
+              <mat-error>Email é obrigatório</mat-error>
+            }
+            @if (formCadastro.get('email')?.hasError('email') && formCadastro.get('email')?.touched) {
+              <mat-error>Informe um email válido</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Senha</mat-label>
+            <input matInput type="password" formControlName="senha" />
+            @if (formCadastro.get('senha')?.hasError('required') && formCadastro.get('senha')?.touched) {
+              <mat-error>Senha é obrigatória</mat-error>
+            }
+            @if (formCadastro.get('senha')?.hasError('minlength') && formCadastro.get('senha')?.touched) {
+              <mat-error>Senha deve ter ao menos 8 caracteres</mat-error>
+            }
+          </mat-form-field>
+
+          @if (erroCadastro) {
+            <p class="erro">{{ erroCadastro }}</p>
+          }
+
+          <button
+            mat-raised-button
+            color="primary"
+            type="submit"
+            class="full-width"
+            [disabled]="formCadastro.invalid || carregandoCadastro"
+          >
+            @if (carregandoCadastro) {
+              <mat-spinner diameter="20"></mat-spinner>
+            } @else {
+              Criar conta
+            }
+          </button>
+        </form>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>

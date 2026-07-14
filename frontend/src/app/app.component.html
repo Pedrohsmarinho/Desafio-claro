@@ -1,0 +1,23 @@
+<mat-toolbar class="app-toolbar" *ngIf="autenticado">
+  <span class="brand">
+    <mat-icon>inventory_2</mat-icon>
+    Gestão de Pedidos
+  </span>
+  <span class="spacer"></span>
+  <a mat-button routerLink="/dashboard" routerLinkActive="link-ativo">
+    <mat-icon>dashboard</mat-icon>
+    Dashboard
+  </a>
+  <a mat-button routerLink="/pedidos" routerLinkActive="link-ativo">
+    <mat-icon>list_alt</mat-icon>
+    Pedidos
+  </a>
+  <button mat-button (click)="sair()">
+    <mat-icon>logout</mat-icon>
+    Sair
+  </button>
+</mat-toolbar>
+
+<div class="page-content">
+  <router-outlet />
+</div>

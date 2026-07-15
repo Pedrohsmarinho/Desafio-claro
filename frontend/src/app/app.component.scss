@@ -6,7 +6,7 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   font-weight: 800;
   font-size: 1.05rem;
   letter-spacing: -0.01em;
@@ -24,14 +24,16 @@
 .indicador-saude {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  margin-right: 8px;
+  margin-right: 0.5rem;
   opacity: 0.9;
 
   .ponto {
+    // tamanho fixo de proposito (bolinha decorativa de status, nao deve
+    // escalar com zoom de fonte)
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -50,7 +52,25 @@
 }
 
 .page-content {
-  max-width: 1200px;
+  max-width: 75rem;
   margin: 0 auto;
-  padding: 24px;
+  padding: 1.5rem;
+}
+
+// Abaixo desse breakpoint os rotulos de texto da navegacao (Dashboard,
+// Pedidos, API, Sair) somem - so os icones (com tooltip) permanecem -
+// evitando que a toolbar quebre/sobreponha o nome do app em telas estreitas.
+// O texto da marca ("Gestao de Pedidos") tambem encolhe pra abrir espaco.
+@media (max-width: 37.5rem) {
+  .brand {
+    font-size: 0.9rem;
+  }
+
+  .nav-label {
+    display: none;
+  }
+
+  .indicador-saude {
+    margin-right: 0;
+  }
 }

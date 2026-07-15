@@ -2,18 +2,19 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: calc(100vh - 48px);
+  // 3rem = altura da toolbar (ver app-toolbar), subtraida da viewport
+  min-height: calc(100vh - 3rem);
 }
 
 .login-card {
   width: 100%;
-  max-width: 380px;
-  padding: 8px;
+  max-width: 23.75rem;
+  padding: 0.5rem;
 }
 
 .seletor-modo {
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
 
   ::ng-deep .mat-button-toggle {
     flex: 1;
@@ -23,13 +24,13 @@
 
 .full-width {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 0.5rem;
 }
 
 .erro {
   color: #c62828;
   font-size: 0.875rem;
-  margin: 8px 0;
+  margin: 0.5rem 0;
 }
 
 .form-transicao {
@@ -39,6 +40,7 @@
 @keyframes fade-in {
   from {
     opacity: 0;
+    // deslocamento decorativo minimo, mantido em px de proposito
     transform: translateY(4px);
   }
   to {

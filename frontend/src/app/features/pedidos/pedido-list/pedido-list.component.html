@@ -62,6 +62,7 @@
     </button>
   </div>
 } @else {
+  <div class="tabela-wrapper">
   <table mat-table [dataSource]="pedidos" matSort (matSortChange)="onSortChange($event)" class="tabela-pedidos">
     <ng-container matColumnDef="cliente">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Cliente</th>
@@ -127,6 +128,7 @@
       </td>
     </tr>
   </table>
+  </div>
 
   <mat-paginator
     [length]="totalElements"

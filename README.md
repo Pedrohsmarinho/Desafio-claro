@@ -500,10 +500,87 @@ Em `/postman`:
   incorreto), `PedidoControllerSecurityTest` (contexto Spring completo +
   filtro de segurança real, sem mocks: `/api/pedidos` retorna 401 sem
   token/com token inválido/com token expirado, 422 em transição inválida
-  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário)
-  e `PedidoBuscaControllerTest` (filtro por status, busca por nome
-  case-insensitive, combinação dos dois, paginação, ordenação, isolamento
-  entre usuários no endpoint `/api/pedidos/busca`). 44 testes no total.
+  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário,
+  204 na exclusão bem-sucedida), `PedidoBuscaControllerTest` (filtro por
+  status, busca por nome case-insensitive, combinação dos dois, paginação,
+  ordenação, isolamento entre usuários no endpoint `/api/pedidos/busca`),
+  `DashboardControllerTest` (contagem por status escopada ao usuário
+  autenticado em `/api/dashboard/metricas`, isolamento entre usuários),
+  `AuthControllerTest` (login/registro: sucesso, 401, 400 de validação,
+  409 de email duplicado — via HTTP, não só a nível de serviço),
+  `PedidoValidacaoControllerTest` (validação de `POST /api/pedidos`: nome
+  vazio/curto, peso/itens ausentes/negativos/não numéricos, e rota
+  inexistente retornando 404 no formato padronizado) e
+  `PedidoControllerErroInesperadoTest` (uma exceção genérica não mapeada
+  cai no handler catch-all e retorna 500 sem vazar stacktrace/detalhe
+  interno para o cliente). 69 testes no total.
+
+### Cobertura de código (JaCoCo) e testes de cenários de erro
+
+Configurado `jacoco-maven-plugin` no `pom.xml` (`prepare-agent` antes dos
+testes, `report` gerado em `target/site/jacoco/index.html` logo depois,
+na fase `test`). **Sem `jacoco:check`/threshold mínimo por enquanto** —
+decisão deliberada de olhar o número real antes de definir uma meta, em
+vez de travar o build num percentual arbitrário. Exclusões do relatório
+(não da execução dos testes — todo o código real roda normalmente):
+classe `*Application` (main, sem lógica), `SecurityConfig`/`OpenApiConfig`
+(configuração pura, sem branches), `dto/**` (records simples) e
+`service/exception/**` (exceções triviais, só guardam uma mensagem).
+
+**Antes** (44 testes, cobrindo majoritariamente o caminho feliz +
+algumas regras de negócio): **92.8% linhas / 90.6% instruções / 85.0%
+branches**. Maior gap: `GlobalExceptionHandler` em 43% — a maioria dos
+handlers de exceção nunca era exercitada via HTTP de verdade.
+
+**Depois** (65 testes, com os cenários de erro/exception completos
+descritos acima): **99.4% linhas / 99.3% instruções / 85.0% branches**.
+`GlobalExceptionHandler` e `PedidoController` foram de 43%/80% para
+100%. A cobertura de branches não mudou porque os poucos branches
+restantes (`DataSeeder`, um `if` de "já semeado ou não") não fazem parte
+do escopo de cenários de erro da API.
+
+**Dois gaps reais de tratamento de erro foram encontrados e corrigidos
+no código (não só ajustados no teste) ao escrever esses testes**:
+
+1. **Rota inexistente retornava 500, não 404**: `GET /api/rota-que-nao-existe`
+   caía no handler catch-all genérico em vez de um 404 com o formato
+   padronizado. A causa: no Spring Framework 6.1+/Boot 3.2+, uma rota sem
+   handler lança `NoResourceFoundException` (não o mais antigo
+   `NoHandlerFoundException`, que era o que eu tinha mapeado
+   inicialmente) — descoberto empiricamente ao rodar o teste, não
+   assumido. Corrigido adicionando um `@ExceptionHandler(NoResourceFoundException.class)`
+   dedicado, além de configurar
+   `spring.mvc.throw-exception-if-no-handler-found: true` e
+   `spring.web.resources.add-mappings: false` (sem isso, a rota
+   inexistente nem chegava a lançar uma exceção capturável — caía direto
+   no tratamento padrão de recurso estático do Spring, com uma
+   Whitelabel Error Page em HTML).
+2. **Corpo de requisição malformado (ex: `"peso": "abc"` em vez de um
+   número) retornava 500, não 400**: um JSON com tipo errado num campo
+   causa `HttpMessageNotReadableException` durante a desserialização,
+   **antes** da Bean Validation rodar — uma exceção diferente de
+   `MethodArgumentNotValidException`, sem handler dedicado, caindo no
+   catch-all genérico (500) em vez de um 400 (erro do cliente, não do
+   servidor). Corrigido com um `@ExceptionHandler(HttpMessageNotReadableException.class)`
+   dedicado.
+
+Formato de erro já padronizado desde o início do projeto (`ErrorResponse`:
+`timestamp`, `status`, `error`, `message`, `path`), usado por **todos**
+os handlers de exceção sem exceção — os testes de erro não precisaram
+de um formato novo.
+
+### Testes de erro/exception no frontend
+
+Além dos cenários já descritos nas seções de testes por componente
+acima, os testes que simulam especificamente respostas de erro do
+backend (via `HttpTestingController`, sem precisar do backend rodando):
+login com 401 (`AuthService` propaga o erro e não grava token nenhum),
+`PedidoService.alterarStatus`/`excluir` com 422/404 vindos da API real
+(não do fallback local), e o tratamento desses mesmos erros na tela de
+listagem (mensagem de erro via snackbar, tela continua funcional, sem
+exceção não tratada). O `authInterceptor` (limpa sessão e redireciona em
+qualquer 401) e as mensagens de erro em `LoginComponent`/
+`PedidoFormComponent` já tinham cobertura de sessões anteriores.
 
 ## Decisões técnicas — Frontend
 
@@ -607,6 +684,29 @@ Em `/postman`:
   peso total, itens totais): complementam os gráficos com números diretos,
   sem precisar interpretar um gráfico para responder "quantos pedidos eu
   tenho mesmo".
+- **Gráficos do dashboard (barras "por status" e pizza "vs. limite")
+  consomem `GET /api/dashboard/metricas`, não recontam a lista de pedidos
+  no navegador**: antes, os dois gráficos eram calculados client-side
+  (`Array.filter`/`reduce` sobre `pedidos$`) — a mesma lógica de contagem
+  duplicada em dois lugares (dashboard e, potencialmente, qualquer outro
+  lugar que precisasse do mesmo número). Agora existe uma única query
+  autoritativa no backend (`PedidoService.buscarMetricasDashboard`,
+  escopada por `usuarioId`), e o frontend só exibe o que ela retorna.
+  **Decisão deliberada de não ler direto do `MeterRegistry` do
+  Micrometer** (que alimenta `/actuator/prometheus` e o Grafana): as
+  métricas de negócio (`pedidos_total`, `pedidos_by_status`) são
+  **globais** (somam todos os usuários) e, no caso de `pedidos_total`,
+  **cumulativas** (um `Counter` que nunca decresce com exclusões) — nenhuma
+  das duas coisas é o que o card/gráfico do usuário logado precisa mostrar
+  ("quantos pedidos eu tenho *agora*"). Taguear essas métricas por usuário
+  para reaproveitá-las aqui também foi descartado: cardinalidade por
+  usuário num Gauge/Counter do Prometheus é um anti-pattern conhecido
+  (cresce sem limite conforme a base de usuários cresce). Por isso, o
+  Grafana continua respondendo "qual a saúde/uso agregado do sistema" com
+  as métricas globais de sempre, e `/api/dashboard/metricas` responde
+  "quantos pedidos esse usuário tem agora, por status" com uma consulta
+  direta ao banco escopada por usuário — perguntas diferentes, por
+  design, cada uma com a fonte de dados certa para o que ela responde.
 - **Estados vazio/carregando/API indisponível tratados explicitamente**: a
   listagem e o dashboard mostram um spinner enquanto carregam, uma
   ilustração + CTA ("Cadastrar o primeiro pedido") quando não há nenhum
@@ -670,21 +770,26 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 44 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 69 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
-  `PedidoControllerSecurityTest` e `PedidoBuscaControllerTest` — contexto
-  Spring completo, sem mocks) rodando contra H2.
-- Frontend: `ng build` (dev e produção) sem erros; 63 testes Jasmine/Karma
+  `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`,
+  `DashboardControllerTest`, `AuthControllerTest`,
+  `PedidoValidacaoControllerTest` e `PedidoControllerErroInesperadoTest` —
+  contexto Spring completo, sem mocks, exceto o service mockado no teste
+  de 500) rodando contra H2, com cobertura JaCoCo em 99.4% de linhas.
+- Frontend: `ng build` (dev e produção) sem erros; 69 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o
   `AuthService` (sessão em `sessionStorage`, expiração de token), o
+  `DashboardService` (consumo de `/api/dashboard/metricas`), o
   `HealthService` (up/down/polling), o filtro/busca/paginação/ordenação da
   listagem via `/api/pedidos/busca` (incluindo o debounce de 300ms na
   busca e a regressão de paginação/tamanho de página corrigida com dados
-  mockados), a validação e o fluxo de login/cadastro do `LoginComponent`, os
-  cards de resumo/gráficos/polling do `DashboardComponent`, e a validação
-  e o limite de 5 pedidos no `PedidoFormComponent`.
+  mockados), a validação e o fluxo de login/cadastro do `LoginComponent`,
+  os cards de resumo e os gráficos do `DashboardComponent` (agora via
+  `/api/dashboard/metricas`), e a validação e o limite de 5 pedidos no
+  `PedidoFormComponent`.
 - Verificado que o `ng serve` já em execução recompilou automaticamente
   (watch mode) e está servindo o bundle atualizado (strings como
   `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).

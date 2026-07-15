@@ -38,6 +38,19 @@ export interface FiltroPedidos {
   sort?: string | null; // "campo,direcao", ex: "displayName,asc"
 }
 
+/**
+ * Espelha o retorno de GET /api/dashboard/metricas - contagem do usuario
+ * autenticado, escopada por usuarioId. Distinto das metricas globais de
+ * /actuator/prometheus (pedidos_total, pedidos_by_status), que alimentam
+ * o Grafana e respondem uma pergunta diferente (saude/uso agregado do
+ * sistema, nao "meus pedidos agora"). Ver DashboardService e o README.
+ */
+export interface DashboardMetricas {
+  totalPedidos: number;
+  porStatus: Record<StatusPedido, number>;
+  limiteMaximo: number;
+}
+
 export const STATUS_LABELS: Record<StatusPedido, string> = {
   [StatusPedido.EM_PROCESSAMENTO]: 'Em processamento',
   [StatusPedido.PAUSADO]: 'Pausado',

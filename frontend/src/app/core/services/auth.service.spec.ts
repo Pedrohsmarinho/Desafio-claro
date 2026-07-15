@@ -69,6 +69,22 @@ describe('AuthService', () => {
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
+  it('propaga erro 401 do login e nao armazena token nenhum', (done) => {
+    service.login({ email: 'usuario@teste.com', senha: 'senha-errada' }).subscribe({
+      next: () => fail('nao deveria ter sucesso'),
+      error: (err) => {
+        expect(err.status).toBe(401);
+        expect(service.isAuthenticated()).toBeFalse();
+        expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
+        done();
+      },
+    });
+
+    httpMock
+      .expectOne(`${environment.apiUrl}/auth/login`)
+      .flush({ message: 'Email ou senha invalidos' }, { status: 401, statusText: 'Unauthorized' });
+  });
+
   it('registrar tambem autentica automaticamente', () => {
     const expFuturo = Math.floor(Date.now() / 1000) + 3600;
     const token = criarTokenFake(expFuturo);

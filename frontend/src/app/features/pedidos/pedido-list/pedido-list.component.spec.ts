@@ -3,7 +3,10 @@ import { provideHttpClientTesting, HttpTestingController } from '@angular/common
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator } from '@angular/material/paginator';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { PaginaPedidos, Pedido, StatusPedido } from '../../../core/models/pedido.model';
 import { PedidoListComponent } from './pedido-list.component';
@@ -180,5 +183,38 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
     // usuario (3) e o que decide se o botao "Adicionar" fica desabilitado
     expect(component.totalPedidosUsuario).toBe(3);
     expect(component.podeAtingirLimite()).toBeFalse();
+  });
+
+  it('exibe erro sem quebrar a tela quando alterarStatus retorna 404 (pedido de outro usuário)', () => {
+    const snackBar = TestBed.inject(MatSnackBar);
+    const openSpy = spyOn(snackBar, 'open').and.callThrough();
+
+    component.alterarStatus(pedidos[0], StatusPedido.PAUSADO);
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.apiUrl}/pedidos/${pedidos[0].id}/status`)
+      .flush({ message: 'Pedido nao encontrado: id=1' }, { status: 404, statusText: 'Not Found' });
+
+    expect(openSpy).toHaveBeenCalled();
+    expect(openSpy.calls.mostRecent().args[0]).toContain('Pedido nao encontrado');
+    // a tela continua funcional - nao ha excecao nao tratada, o componente
+    // continua respondendo (dado carregado anteriormente nao e descartado)
+    expect(component.pedidos.length).toBe(3);
+  });
+
+  it('exibe erro sem quebrar a tela quando excluir retorna 404 (pedido ja excluido/de outro usuário)', () => {
+    const dialog = TestBed.inject(MatDialog);
+    spyOn(dialog, 'open').and.returnValue({ afterClosed: () => of(true) } as ReturnType<MatDialog['open']>);
+    const snackBar = TestBed.inject(MatSnackBar);
+    const openSpy = spyOn(snackBar, 'open').and.callThrough();
+
+    component.excluir(pedidos[0]);
+
+    httpMock
+      .expectOne((r) => r.url === `${environment.apiUrl}/pedidos/${pedidos[0].id}` && r.method === 'DELETE')
+      .flush({ message: 'Pedido nao encontrado: id=1' }, { status: 404, statusText: 'Not Found' });
+
+    expect(openSpy).toHaveBeenCalled();
+    expect(component.pedidos.length).toBe(3);
   });
 });

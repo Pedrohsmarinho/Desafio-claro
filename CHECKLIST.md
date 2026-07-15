@@ -55,8 +55,9 @@
 | Estilização (Angular Material customizado) | ✅ Completo |
 | Gráficos via ng2-charts/Chart.js (com justificativa documentada) | ✅ Completo |
 | Docker Compose subindo frontend + backend + MariaDB + monitoramento | ✅ Completo — um único `docker compose up --build`, sem pré-requisito externo; validado do zero (`down -v && up --build`) |
-| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 44 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, `PedidoControllerSecurityTest` e `PedidoBuscaControllerTest` com contexto Spring completo e filtro de segurança real) |
-| Testes Jasmine/Karma | ✅ Completo — 63 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `HealthService`, filtro/busca/paginação/ordenação da listagem via API (com debounce, incluindo regressão de paginação/tamanho de página), validação e fluxo de `LoginComponent`, cards/gráficos/polling do `DashboardComponent`, validação e limite de 5 no `PedidoFormComponent`) |
+| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 69 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`, `DashboardControllerTest`, `AuthControllerTest`, `PedidoValidacaoControllerTest`, `PedidoControllerErroInesperadoTest` — cenários de erro/exception completos, ver seção de cobertura JaCoCo) |
+| Testes Jasmine/Karma | ✅ Completo — 69 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `DashboardService`, `HealthService`, filtro/busca/paginação/ordenação da listagem via API (com debounce, incluindo regressão de paginação/tamanho de página), validação e fluxo de `LoginComponent`, cards e gráficos do `DashboardComponent` (via `GET /api/dashboard/metricas`), validação e limite de 5 no `PedidoFormComponent`, cenários de erro 401/404/422 propagados do backend) |
+| Cobertura de código (JaCoCo, backend) | ✅ Completo — configurado sem threshold mínimo por enquanto; 92.8% → 99.4% linhas após os testes de erro/exception (ver seção dedicada no README) |
 
 ## Entregáveis finais
 

@@ -777,6 +777,75 @@ qualquer 401) e as mensagens de erro em `LoginComponent`/
   dispositivo) — sem isso, os gráficos ficariam desatualizados até a
   próxima navegação para a tela.
 
+### Unidades relativas (rem) vs. px no CSS
+
+Espaçamento (`padding`/`margin`/`gap`), tipografia e "larguras-teto" de
+containers (`max-width`/`min-width`/`flex-basis`, inclusive os pontos de
+quebra de `grid-template-columns`/ícones dimensionados por `font-size`) usam
+`rem` em vez de `px` — escalam de forma proporcional se o usuário aumentar a
+fonte padrão do navegador (acessibilidade) ou usar zoom, em vez de manter um
+valor fixo em pixels reais de tela. Para os `max-width` de containers
+especificamente, optei por `rem` e não por `%`: um "teto máximo" de largura
+não tem um `%` de referência útil (o elemento pai já ocupa 100%) — `rem` é o
+equivalente real a "não passe de X, mas ainda assim acompanhe o zoom/fonte do
+usuário".
+
+`px` foi mantido apenas onde o valor é uma decisão puramente visual, que não
+deveria escalar com zoom de fonte: bordas finas (`1px solid`), offsets de
+`box-shadow`, o raio de borda dos cards/botões (`--raio-card`,
+`--raio-botao`), o `border-radius: 999px` dos badges "pill" (já é um valor
+grande o bastante pra forçar o arredondamento total em qualquer tamanho) e
+o deslocamento mínimo (`translateY(4px)`) da animação de entrada do
+formulário de login.
+
+### Análise e correções de UX/UI
+
+Revisão crítica do fluxo completo (login/cadastro, dashboard, listagem,
+cadastro de pedido) em desktop e mobile, focada em consistência antes de
+qualquer elemento novo. Dois problemas reais de layout responsivo (não
+escolha estética) foram encontrados e corrigidos:
+
+- **Toolbar sobrepondo o nome do app em telas estreitas**: os links
+  (Dashboard/Pedidos), o indicador de saúde da API e "Sair" ficavam
+  ilegíveis/inclicáveis por não haver `flex-wrap` nem colapso em telas
+  pequenas. Corrigido escondendo os rótulos de texto (mantendo ícone +
+  `matTooltip`) abaixo de `37.5rem` de largura — sem introduzir um padrão de
+  navegação novo (menu hambúrguer/gaveta), só resolvendo a quebra existente.
+- **Tabela de pedidos "empurrando" a página inteira no mobile**: a
+  `<table>` não tinha um container com rolagem própria, então a página
+  toda ficava mais larga que a viewport. Corrigido com um wrapper
+  (`.tabela-wrapper`) com `overflow-x: auto` e `min-width` na tabela — agora
+  só a tabela rola horizontalmente, o resto da página permanece fixo na
+  largura da tela.
+
+Outros pontos observados (estados vazio/carregando, tela de erro de login,
+aba de cadastro) já seguiam um padrão consistente entre as telas
+(`.estado-vazio`/`.estado-carregando`, `titulo-pagina`/`subtitulo-pagina`) e
+não exigiram mudança. Nenhum ponto encontrado envolveu decisão de paleta,
+tipografia ou densidade dos componentes.
+
+### Gestão de dependências (package-lock.json)
+
+`package-lock.json` não é versionado no repositório (está no
+`.gitignore` do frontend). É uma escolha deliberada, ciente de que o mais
+comum é o oposto (versionar o lock file para reprodutibilidade total de
+build entre máquinas/CI): sem o lock file, a mitigação escolhida foi fixar
+**versões exatas** (sem `^`/`~`) em todas as dependências do
+`package.json`, reduzindo (embora não eliminando por completo, já que
+sub-dependências transitivas ainda podem variar) o risco de builds
+diferentes puxarem versões diferentes em máquinas diferentes.
+
+Antes de fixar as versões, auditei se cada dependência listada era
+realmente usada (`grep` por import no código-fonte). `@angular/platform-browser-dynamic`
+não aparecia em nenhum import do projeto (o bootstrap é via
+`bootstrapApplication`, standalone, não `platformBrowserDynamic().bootstrapModule()`)
+e foi removida — mas os testes (`ng test`) quebraram logo em seguida: o
+próprio builder de testes do Angular gera um arquivo de bootstrap virtual
+que importa `@angular/platform-browser-dynamic/testing` internamente,
+invisível a um `grep` do código-fonte. A dependência foi restaurada; fica
+registrado como lição: para pacotes do próprio ecossistema Angular/CLI,
+"sem import direto" não é garantia de "não utilizado".
+
 ## Validação realizada
 
 O ambiente de execução usado para construir este projeto não tinha acesso a

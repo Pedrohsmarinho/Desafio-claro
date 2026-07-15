@@ -55,8 +55,8 @@
 | Estilização (Angular Material customizado) | ✅ Completo |
 | Gráficos via ng2-charts/Chart.js (com justificativa documentada) | ✅ Completo |
 | Docker Compose subindo frontend + backend + MariaDB + monitoramento | ✅ Completo — um único `docker compose up --build`, sem pré-requisito externo; validado do zero (`down -v && up --build`) |
-| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 44 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, `PedidoControllerSecurityTest` e `PedidoBuscaControllerTest` com contexto Spring completo e filtro de segurança real) |
-| Testes Jasmine/Karma | ✅ Completo — 60 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `HealthService`, filtro/busca/paginação/ordenação da listagem via API (com debounce), validação e fluxo de `LoginComponent`, cards/gráficos/polling do `DashboardComponent`, validação e limite de 5 no `PedidoFormComponent`) |
+| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 48 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest` e `DashboardControllerTest` com contexto Spring completo e filtro de segurança real) |
+| Testes Jasmine/Karma | ✅ Completo — 61 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `DashboardService`, `HealthService`, filtro/busca/paginação/ordenação da listagem via API (com debounce), validação e fluxo de `LoginComponent`, cards e gráficos do `DashboardComponent` (via `GET /api/dashboard/metricas`), validação e limite de 5 no `PedidoFormComponent`) |
 
 ## Entregáveis finais
 

@@ -621,10 +621,13 @@ Em `/postman`:
   pedidos", para excluir/finalizar algo), em vez de só bloquear o botão sem
   explicação.
 - **Indicador de saúde da API consumindo `/actuator/health` de verdade**:
-  `HealthService` faz polling a cada 15s (mesmo intervalo documentado para o
-  scrape do Prometheus) e expõe `status$` (`up`/`down`/`verificando`); um
-  indicador (bolinha verde/amarela + tooltip) fica sempre visível na
-  toolbar, independente da tela. É deliberadamente separado do aviso
+  `HealthService` faz polling a cada 30s e expõe `status$`
+  (`up`/`down`/`verificando`); um indicador (bolinha verde/amarela +
+  tooltip) fica sempre visível na toolbar, independente da tela. 30s (não
+  os 15s do scrape do Prometheus) porque esse indicador só precisa refletir
+  um status atual para o usuário olhar de vez em quando — não alimenta
+  série histórica nem alimenta alerta, então não ganha nada em checar com
+  mais frequência que isso. É deliberadamente separado do aviso
   "API indisponível" da listagem: o indicador da toolbar reflete a saúde
   geral do backend (Actuator), enquanto o aviso da listagem informa algo
   mais específico — que os dados exibidos agora são os do fallback local.

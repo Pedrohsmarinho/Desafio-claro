@@ -131,7 +131,8 @@
   <mat-paginator
     [length]="totalElements"
     [pageSizeOptions]="pageSizeOptions"
-    [pageSize]="pageSizeOptions[0]"
+    [pageSize]="pageSize"
+    [pageIndex]="pageIndex"
     (page)="onPageChange($event)"
     showFirstLastButtons
     aria-label="Selecionar página de pedidos"

@@ -3,7 +3,9 @@ package com.claro.desafio.pedidos.controller;
 import com.claro.desafio.pedidos.dto.LoginRequest;
 import com.claro.desafio.pedidos.dto.LoginResponse;
 import com.claro.desafio.pedidos.dto.RegistroRequest;
+import com.claro.desafio.pedidos.mapper.UsuarioMapper;
 import com.claro.desafio.pedidos.service.AuthService;
+import com.claro.desafio.pedidos.service.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final UsuarioMapper usuarioMapper;
 
     @PostMapping("/login")
     @Operation(summary = "Autentica o usuario com email/senha e retorna um JWT")
@@ -34,7 +37,8 @@ public class AuthController {
             @ApiResponse(responseCode = "401", description = "Email ou senha incorretos"),
     })
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
+        UsuarioAutenticado resultado = authService.login(request);
+        return ResponseEntity.ok(usuarioMapper.toLoginResponse(resultado.usuario(), resultado.token()));
     }
 
     @PostMapping("/registrar")
@@ -46,6 +50,7 @@ public class AuthController {
             @ApiResponse(responseCode = "409", description = "Ja existe uma conta com esse email"),
     })
     public LoginResponse registrar(@Valid @RequestBody RegistroRequest request) {
-        return authService.registrar(request);
+        UsuarioAutenticado resultado = authService.registrar(request);
+        return usuarioMapper.toLoginResponse(resultado.usuario(), resultado.token());
     }
 }

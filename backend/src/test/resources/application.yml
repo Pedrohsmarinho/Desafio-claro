@@ -1,4 +1,11 @@
 spring:
+  # ativa o profile "test", usado por DataSeeder (@Profile("!test")) pra nao
+  # rodar o seed de demonstracao durante os testes automatizados - nenhum
+  # teste depende dos dados semeados, cada um cria seus proprios
+  # usuarios/pedidos via API.
+  profiles:
+    active: test
+
   datasource:
     url: jdbc:h2:mem:pedidosdb-test;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver

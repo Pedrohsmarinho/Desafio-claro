@@ -6,28 +6,16 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.5.0</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
 	</parent>
 	<groupId>com.claro.desafio</groupId>
 	<artifactId>pedidos-api</artifactId>
 	<version>1.0.0</version>
 	<name>pedidos-api</name>
 	<description>API de gestao de pedidos - Desafio Tecnico Claro</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
 	<properties>
 		<java.version>17</java.version>
+		<mapstruct.version>1.6.3</mapstruct.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -107,6 +95,11 @@
 			<optional>true</optional>
 		</dependency>
 		<dependency>
+			<groupId>org.mapstruct</groupId>
+			<artifactId>mapstruct</artifactId>
+			<version>${mapstruct.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
@@ -148,6 +141,18 @@
 									<groupId>org.projectlombok</groupId>
 									<artifactId>lombok</artifactId>
 								</path>
+								<path>
+									<groupId>org.mapstruct</groupId>
+									<artifactId>mapstruct-processor</artifactId>
+									<version>${mapstruct.version}</version>
+								</path>
+								<!-- coordena a ordem lombok -> mapstruct quando a mesma classe usa
+								     as duas anotacoes (nao e o caso hoje, mas evita problema futuro) -->
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok-mapstruct-binding</artifactId>
+									<version>0.2.0</version>
+								</path>
 							</annotationProcessorPaths>
 						</configuration>
 					</execution>
@@ -162,6 +167,16 @@
 								<path>
 									<groupId>org.projectlombok</groupId>
 									<artifactId>lombok</artifactId>
+								</path>
+								<path>
+									<groupId>org.mapstruct</groupId>
+									<artifactId>mapstruct-processor</artifactId>
+									<version>${mapstruct.version}</version>
+								</path>
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok-mapstruct-binding</artifactId>
+									<version>0.2.0</version>
 								</path>
 							</annotationProcessorPaths>
 						</configuration>
@@ -183,10 +198,13 @@
 				  - *Application.class: classe main, sem logica (so sobe o Spring)
 				  - config/SecurityConfig, config/OpenApiConfig: configuracao pura
 				    (wiring de beans), sem branches/logica condicional
-				  - dto/**: records simples (campos + no maximo uma conversao trivial
-				    em PedidoResponse.from), sem logica de negocio
+				  - dto/**: records simples (so campos), sem logica de negocio
 				  - service/exception/**: excecoes simples (so guardam uma mensagem
 				    no construtor), sem logica propria
+				  - mapper/*MapperImpl.class: implementacao gerada em build-time pelo
+				    MapStruct (nao e codigo escrito/mantido a mao); exercitada
+				    indiretamente pelos testes de controller, mas nao faz sentido
+				    escrever teste unitario dedicado pra codigo gerado
 				-->
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -198,6 +216,7 @@
 						<exclude>**/config/OpenApiConfig.class</exclude>
 						<exclude>**/dto/**</exclude>
 						<exclude>**/service/exception/**</exclude>
+						<exclude>**/mapper/*MapperImpl.class</exclude>
 					</excludes>
 				</configuration>
 				<executions>

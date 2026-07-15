@@ -4,13 +4,13 @@
     Gestão de Pedidos
   </span>
   <span class="spacer"></span>
-  <a mat-button routerLink="/dashboard" routerLinkActive="link-ativo">
+  <a mat-button routerLink="/dashboard" routerLinkActive="link-ativo" matTooltip="Dashboard">
     <mat-icon>dashboard</mat-icon>
-    Dashboard
+    <span class="nav-label">Dashboard</span>
   </a>
-  <a mat-button routerLink="/pedidos" routerLinkActive="link-ativo">
+  <a mat-button routerLink="/pedidos" routerLinkActive="link-ativo" matTooltip="Pedidos">
     <mat-icon>list_alt</mat-icon>
-    Pedidos
+    <span class="nav-label">Pedidos</span>
   </a>
   <span
     class="indicador-saude"
@@ -19,11 +19,11 @@
     [matTooltip]="rotuloSaude((saudeApi$ | async)!)"
   >
     <span class="ponto"></span>
-    API
+    <span class="nav-label">API</span>
   </span>
-  <button mat-button (click)="sair()">
+  <button mat-button (click)="sair()" matTooltip="Sair">
     <mat-icon>logout</mat-icon>
-    Sair
+    <span class="nav-label">Sair</span>
   </button>
 </mat-toolbar>
 

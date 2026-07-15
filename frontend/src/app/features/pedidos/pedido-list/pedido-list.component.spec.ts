@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testin
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
+import { MatPaginator } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { of } from 'rxjs';
 import { environment } from '../../../../environments/environment';
@@ -111,6 +112,55 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
     req.flush({ ...paginaCompleta, number: 1 });
 
     expect(component.pedidos.length).toBe(paginaCompleta.content.length);
+  });
+
+  it('mantém o tamanho de página escolhido pelo usuário (não reseta para o valor padrão)', () => {
+    // regressao: [pageSize] no template estava fixo em "pageSizeOptions[0]"
+    // (uma expressao estatica, sempre 5) em vez de vinculado ao campo real do
+    // componente - qualquer mudanca de pagina/filtro reescrevia o tamanho de
+    // pagina do paginador de volta para 5, mesmo que o usuario tivesse
+    // escolhido 10 ou 25.
+    component.onPageChange({ pageIndex: 0, pageSize: 25, length: 50 });
+
+    const req = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('size') === '25');
+    req.flush({ ...paginaCompleta, size: 25, totalElements: 50 });
+
+    expect(component.pageSize).toBe(25);
+
+    // uma pagina seguinte com o MESMO tamanho de pagina (nao deve voltar a 5)
+    component.onPageChange({ pageIndex: 1, pageSize: 25, length: 50 });
+    const req2 = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '1');
+    expect(req2.request.params.get('size')).toBe('25');
+    req2.flush({ ...paginaCompleta, size: 25, totalElements: 50, number: 1 });
+  });
+
+  it('reflete pageIndex/pageSize do componente no mat-paginator real da tela (não uma expressão estática)', () => {
+    component.onPageChange({ pageIndex: 2, pageSize: 25, length: 100 });
+    httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '2')
+      .flush({ ...paginaCompleta, size: 25, totalElements: 100, number: 2 });
+    fixture.detectChanges();
+
+    const paginator = fixture.debugElement.query((el) => el.componentInstance instanceof MatPaginator)
+      .componentInstance as MatPaginator;
+
+    expect(paginator.pageSize).toBe(25);
+    expect(paginator.pageIndex).toBe(2);
+  });
+
+  it('permite voltar para a página anterior corretamente', () => {
+    // regressao: [pageIndex] nao estava vinculado no template, entao o
+    // MatPaginator gerenciava seu proprio indice interno, dessincronizado
+    // do indice real usado nas requisicoes - "voltar pagina" nao funcionava.
+    component.onPageChange({ pageIndex: 2, pageSize: 10, length: 50 });
+    httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '2')
+      .flush({ ...paginaCompleta, size: 10, totalElements: 50, number: 2 });
+    expect(component.pageIndex).toBe(2);
+
+    component.onPageChange({ pageIndex: 1, pageSize: 10, length: 50 });
+    const reqVoltar = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '1');
+    reqVoltar.flush({ ...paginaCompleta, size: 10, totalElements: 50, number: 1 });
+
+    expect(component.pageIndex).toBe(1);
   });
 
   it('dispara uma nova requisição com o campo de ordenação mapeado para o nome usado no backend', () => {

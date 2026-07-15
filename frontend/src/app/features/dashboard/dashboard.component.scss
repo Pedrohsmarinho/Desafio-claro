@@ -1,26 +1,26 @@
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 1.5rem;
 }
 
 .cards-resumo {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(11.25rem, 1fr));
+  gap: 1rem;
 }
 
 .card-resumo {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: 20px !important;
+  gap: 0.25rem;
+  padding: 1.25rem !important;
 }
 
 .icone-resumo {
   color: var(--cor-marca);
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .valor-resumo {
@@ -39,34 +39,34 @@
 .charts {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
+  gap: 1.5rem;
 }
 
 .chart-card {
-  flex: 1 1 380px;
-  min-width: 320px;
+  flex: 1 1 23.75rem;
+  min-width: 20rem;
 }
 
 canvas {
-  max-height: 320px;
+  max-height: 20rem;
 }
 
 .estado-vazio-chart {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   text-align: center;
   color: var(--cor-texto-suave);
-  padding: 32px 0;
+  padding: 2rem 0;
 }
 
 .estado-carregando {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
   color: var(--cor-texto-suave);
-  padding: 48px 0;
+  padding: 3rem 0;
   justify-content: center;
 }
 

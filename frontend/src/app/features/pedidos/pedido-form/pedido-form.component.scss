@@ -1,29 +1,29 @@
 .header {
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .form-card {
-  max-width: 480px;
-  margin-top: 16px;
+  max-width: 30rem;
+  margin-top: 1rem;
 }
 
 .full-width {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 0.5rem;
 }
 
 .erro-limite {
   display: flex;
-  gap: 12px;
+  gap: 0.75rem;
   align-items: flex-start;
   color: var(--status-cancelado);
   background: var(--status-cancelado-bg);
-  padding: 16px;
+  padding: 1rem;
   border-radius: var(--raio-card);
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
 
   p {
-    margin: 4px 0 12px;
+    margin: 0.25rem 0 0.75rem;
     color: var(--cor-texto);
   }
 }

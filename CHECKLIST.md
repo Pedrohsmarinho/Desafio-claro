@@ -54,8 +54,8 @@
 | Angular 17 standalone components (com justificativa documentada) | ✅ Completo |
 | Estilização (Angular Material customizado) | ✅ Completo |
 | Gráficos via ng2-charts/Chart.js (com justificativa documentada) | ✅ Completo |
-| Docker Compose subindo frontend + backend + monitoramento | ✅ Completo — validado de ponta a ponta (`docker compose up`) |
-| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 28 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, contexto Spring) |
+| Docker Compose subindo frontend + backend + MariaDB + monitoramento | ✅ Completo — um único `docker compose up --build`, sem pré-requisito externo; validado do zero (`down -v && up --build`) |
+| Testes JUnit cobrindo limite de 5 e transições de status | ✅ Completo — 35 testes (`StatusPedidoTest`, `PedidoServiceTest`, `AuthServiceTest`, `JwtServiceTest`, `PedidoControllerSecurityTest` com contexto Spring completo e filtro de segurança real) |
 | Testes Jasmine/Karma | ✅ Completo — 57 testes (transições, fallback offline, `authGuard`, `authInterceptor`, `AuthService`, `HealthService`, filtro/busca/paginação da listagem, validação e fluxo de `LoginComponent`, cards/gráficos/polling do `DashboardComponent`, validação e limite de 5 no `PedidoFormComponent`) |
 
 ## Entregáveis finais
@@ -69,7 +69,7 @@
 
 ## Além do escopo original (evoluções pedidas durante a conversa)
 
-- Migração de **H2 → MariaDB** como banco principal (H2 mantido só nos testes)
+- Migração de **H2 → MariaDB** como banco principal (H2 mantido só nos testes), depois **containerizado no Docker Compose** (`create-db-user.sh` cobre o setup manual do fluxo local sem Docker)
 - **Swagger/OpenAPI** (`springdoc-openapi`) com documentação interativa
 - **Postman**: collection com exemplos/mocks, environment e script `curl-examples.sh`
 - **Multiusuário completo**: cadastro de usuários, isolamento de pedidos por usuário (limite de 5 por usuário, não global), autorização por JWT
@@ -84,7 +84,6 @@ Nada do escopo pedido ou dos diferenciais listados no enunciado ficou de
 fora. Itens que ficaram para uma eventual continuação (não bloqueantes,
 documentados em ["O que eu faria diferente com mais tempo"](README.md#o-que-eu-faria-diferente-com-mais-tempo)):
 
-- Containerizar o MariaDB também (hoje é local, por decisão do usuário)
 - CI (GitHub Actions) rodando testes/build a cada PR
 - Testes E2E de verdade (Cypress/Playwright)
 - Refresh token e cookie `httpOnly` para o JWT do frontend

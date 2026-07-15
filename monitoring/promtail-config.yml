@@ -6,9 +6,8 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  # Promtail roda com network_mode: host (assim como o Loki), entao
-  # "localhost" aqui e o host de verdade.
-  - url: http://localhost:3100/loki/api/v1/push
+  # "loki" e o nome do servico no docker-compose.yml (rede bridge padrao).
+  - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
   # Descoberta dinamica via socket do Docker: acha todos os containers do

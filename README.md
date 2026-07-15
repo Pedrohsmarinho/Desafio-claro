@@ -638,13 +638,15 @@ visualmente:
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
   `PedidoControllerSecurityTest` — contexto Spring completo, sem mocks)
   rodando contra H2.
-- Frontend: `ng build` (dev e produção) sem erros; 38 testes Jasmine/Karma
+- Frontend: `ng build` (dev e produção) sem erros; 57 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o
   `AuthService` (sessão em `sessionStorage`, expiração de token), o
-  `HealthService` (up/down/polling) e o filtro/busca combinados da
-  listagem de pedidos.
+  `HealthService` (up/down/polling), o filtro/busca combinados da listagem
+  de pedidos, a validação e o fluxo de login/cadastro do `LoginComponent`,
+  os cards de resumo/gráficos/polling do `DashboardComponent`, e a
+  validação e o limite de 5 pedidos no `PedidoFormComponent`.
 - Verificado que o `ng serve` já em execução recompilou automaticamente
   (watch mode) e está servindo o bundle atualizado (strings como
   `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).

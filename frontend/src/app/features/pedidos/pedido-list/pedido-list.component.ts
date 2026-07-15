@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -11,8 +11,8 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSort, MatSortModule, Sort } from '@angular/material/sort';
-import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
@@ -57,12 +57,9 @@ const DEBOUNCE_BUSCA_MS = 300;
   templateUrl: './pedido-list.component.html',
   styleUrl: './pedido-list.component.scss',
 })
-export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
+export class PedidoListComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
   private readonly termoBuscaSubject = new Subject<string>();
-
-  @ViewChild(MatSort) sort!: MatSort;
-  @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   readonly displayedColumns = ['cliente', 'itens', 'peso', 'status', 'acoes'];
   readonly statusLabels = STATUS_LABELS;
@@ -88,8 +85,10 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
   filtroStatus: FiltroStatus = 'TODOS';
   termoBusca = '';
 
-  private pageIndex = 0;
-  private pageSize = 5;
+  /** Vinculados a [pageIndex]/[pageSize] no template - o paginador so reflete a pagina/tamanho de verdade se esses bindings existirem e apontarem para campos reativos (nao uma expressao estatica como pageSizeOptions[0]). */
+  pageIndex = 0;
+  pageSize = this.pageSizeOptions[0];
+
   private sortActive = '';
   private sortDirection: 'asc' | 'desc' | '' = '';
 
@@ -100,12 +99,9 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.pageSize = this.pageSizeOptions[0];
-
     this.subscriptions.add(
       this.termoBuscaSubject.pipe(debounceTime(DEBOUNCE_BUSCA_MS), distinctUntilChanged()).subscribe(() => {
         this.pageIndex = 0;
-        this.paginator?.firstPage();
         this.buscar();
       }),
     );
@@ -121,10 +117,6 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
     this.buscar();
   }
 
-  ngAfterViewInit(): void {
-    // paginação e ordenação são resolvidas no backend (ver buscar()) - nada a conectar em MatTableDataSource aqui.
-  }
-
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
@@ -135,7 +127,6 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
 
   onFiltroStatusChange(): void {
     this.pageIndex = 0;
-    this.paginator?.firstPage();
     this.buscar();
   }
 
@@ -149,7 +140,6 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sortActive = sort.active;
     this.sortDirection = sort.direction;
     this.pageIndex = 0;
-    this.paginator?.firstPage();
     this.buscar();
   }
 

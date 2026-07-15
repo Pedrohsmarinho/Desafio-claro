@@ -2,7 +2,6 @@ package com.claro.desafio.pedidos.service;
 
 import com.claro.desafio.pedidos.domain.Usuario;
 import com.claro.desafio.pedidos.dto.LoginRequest;
-import com.claro.desafio.pedidos.dto.LoginResponse;
 import com.claro.desafio.pedidos.dto.RegistroRequest;
 import com.claro.desafio.pedidos.repository.UsuarioRepository;
 import com.claro.desafio.pedidos.security.JwtService;
@@ -50,10 +49,10 @@ class AuthServiceTest {
         });
         when(jwtService.gerarToken("fulano@teste.com")).thenReturn("jwt-fake");
 
-        LoginResponse response = authService.registrar(request);
+        UsuarioAutenticado resultado = authService.registrar(request);
 
-        assertThat(response.email()).isEqualTo("fulano@teste.com");
-        assertThat(response.token()).isEqualTo("jwt-fake");
+        assertThat(resultado.usuario().getEmail()).isEqualTo("fulano@teste.com");
+        assertThat(resultado.token()).isEqualTo("jwt-fake");
         verify(usuarioRepository).save(argThat(u -> u.getSenhaHash().equals("hash-fake")));
     }
 
@@ -75,9 +74,10 @@ class AuthServiceTest {
         when(passwordEncoder.matches("senha1234", "hash-fake")).thenReturn(true);
         when(jwtService.gerarToken("fulano@teste.com")).thenReturn("jwt-fake");
 
-        LoginResponse response = authService.login(new LoginRequest("fulano@teste.com", "senha1234"));
+        UsuarioAutenticado resultado = authService.login(new LoginRequest("fulano@teste.com", "senha1234"));
 
-        assertThat(response.token()).isEqualTo("jwt-fake");
+        assertThat(resultado.token()).isEqualTo("jwt-fake");
+        assertThat(resultado.usuario().getEmail()).isEqualTo("fulano@teste.com");
     }
 
     @Test

@@ -2,7 +2,6 @@ package com.claro.desafio.pedidos.service;
 
 import com.claro.desafio.pedidos.domain.Usuario;
 import com.claro.desafio.pedidos.dto.LoginRequest;
-import com.claro.desafio.pedidos.dto.LoginResponse;
 import com.claro.desafio.pedidos.dto.RegistroRequest;
 import com.claro.desafio.pedidos.repository.UsuarioRepository;
 import com.claro.desafio.pedidos.security.JwtService;
@@ -14,6 +13,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+/**
+ * Retorna a entidade Usuario (via UsuarioAutenticado) para quem chamou - nunca
+ * um DTO de resposta. A conversao pra LoginResponse (via UsuarioMapper) e
+ * responsabilidade do AuthController, mesmo padrao usado em
+ * PedidoController/PedidoService.
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -24,7 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
-    public LoginResponse login(LoginRequest request) {
+    public UsuarioAutenticado login(LoginRequest request) {
         Usuario usuario = usuarioRepository.findByEmailIgnoreCase(request.email())
                 .filter(u -> passwordEncoder.matches(request.senha(), u.getSenhaHash()))
                 .orElse(null);
@@ -35,11 +40,11 @@ public class AuthService {
         }
 
         log.info("Login realizado com sucesso: email='{}'", usuario.getEmail());
-        return new LoginResponse(usuario.getEmail(), jwtService.gerarToken(usuario.getEmail()));
+        return new UsuarioAutenticado(usuario, jwtService.gerarToken(usuario.getEmail()));
     }
 
     /** Cadastra um novo usuario e ja autentica (retorna token), evitando um passo extra de login. */
-    public LoginResponse registrar(RegistroRequest request) {
+    public UsuarioAutenticado registrar(RegistroRequest request) {
         if (usuarioRepository.existsByEmailIgnoreCase(request.email())) {
             log.warn("Tentativa de cadastro com email ja existente: '{}'", request.email());
             throw new EmailJaCadastradoException(request.email());
@@ -52,6 +57,6 @@ public class AuthService {
         usuarioRepository.save(usuario);
 
         log.info("Usuario cadastrado: email='{}'", usuario.getEmail());
-        return new LoginResponse(usuario.getEmail(), jwtService.gerarToken(usuario.getEmail()));
+        return new UsuarioAutenticado(usuario, jwtService.gerarToken(usuario.getEmail()));
     }
 }

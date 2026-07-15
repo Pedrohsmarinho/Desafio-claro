@@ -2,6 +2,7 @@ package com.claro.desafio.pedidos.service;
 
 import com.claro.desafio.pedidos.domain.Pedido;
 import com.claro.desafio.pedidos.domain.StatusPedido;
+import com.claro.desafio.pedidos.dto.DashboardMetricasResponse;
 import com.claro.desafio.pedidos.dto.PedidoRequest;
 import com.claro.desafio.pedidos.repository.PedidoRepository;
 import com.claro.desafio.pedidos.service.exception.LimiteExcedidoException;
@@ -17,7 +18,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Todas as operacoes sao escopadas por usuarioId (multi-tenant): o limite de
@@ -63,6 +66,23 @@ public class PedidoService {
     public Page<Pedido> buscar(Long usuarioId, StatusPedido status, String busca, Pageable pageable) {
         String buscaNormalizada = (busca == null || busca.isBlank()) ? null : busca.trim();
         return pedidoRepository.buscar(usuarioId, status, buscaNormalizada, pageable);
+    }
+
+    /**
+     * Metricas do dashboard do usuario logado (cards/graficos do frontend) -
+     * consulta o banco diretamente, escopada por usuarioId. Deliberadamente
+     * NAO le do MeterRegistry: pedidos_by_status e pedidos_total (ver
+     * PedidoMetrics) sao metricas globais para o Grafana, de proposito
+     * diferente (saude/uso agregado do sistema, nao "meus pedidos agora") -
+     * ver README para a justificativa completa dessa distincao.
+     */
+    public DashboardMetricasResponse buscarMetricasDashboard(Long usuarioId) {
+        Map<StatusPedido, Long> porStatus = new EnumMap<>(StatusPedido.class);
+        for (StatusPedido status : StatusPedido.values()) {
+            porStatus.put(status, pedidoRepository.countByUsuarioIdAndStatus(usuarioId, status));
+        }
+        long total = pedidoRepository.countByUsuarioId(usuarioId);
+        return new DashboardMetricasResponse(total, porStatus, limiteMaximo);
     }
 
     public Pedido buscarPorId(Long id, Long usuarioId) {

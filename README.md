@@ -497,11 +497,13 @@ Em `/postman`:
   válidas/inválidas, pedido inexistente), `AuthServiceTest` (registro,
   email duplicado, login com credenciais corretas/incorretas),
   `JwtServiceTest` (geração/validação de token, expiração, segredo
-  incorreto) e `PedidoControllerSecurityTest` (contexto Spring completo +
+  incorreto), `PedidoControllerSecurityTest` (contexto Spring completo +
   filtro de segurança real, sem mocks: `/api/pedidos` retorna 401 sem
   token/com token inválido/com token expirado, 422 em transição inválida
-  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro
-  usuário). 35 testes no total.
+  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário)
+  e `PedidoBuscaControllerTest` (filtro por status, busca por nome
+  case-insensitive, combinação dos dois, paginação, ordenação, isolamento
+  entre usuários no endpoint `/api/pedidos/busca`). 44 testes no total.
 
 ## Decisões técnicas — Frontend
 
@@ -626,16 +628,23 @@ Em `/postman`:
   "API indisponível" da listagem: o indicador da toolbar reflete a saúde
   geral do backend (Actuator), enquanto o aviso da listagem informa algo
   mais específico — que os dados exibidos agora são os do fallback local.
-- **Filtro por status + busca por nome, e paginação/ordenação, via
-  `MatTableDataSource`**: em vez de filtrar client-side com um simples
-  `Array.filter` (o que funcionaria, mas exigiria reimplementar paginação e
-  ordenação manualmente), a listagem usa `MatTableDataSource` com
-  `MatSort`/`MatPaginator` conectados via `ViewChild`, e um método
-  (`aplicarFiltros`) que recalcula `dataSource.data` a partir do array
-  completo (`pedidos`) sempre que o termo de busca ou o status selecionado
-  mudam — combinando os dois filtros (status E busca), não um ou outro.
+- **Filtro por status + busca por nome, paginação e ordenação resolvidos no
+  backend**: `GET /api/pedidos/busca?status=&busca=&page=&size=&sort=`
+  (`PedidoRepository.buscar`, uma única query JPQL com `status`/`busca`
+  opcionais) devolve um `Page<PedidoResponse>` já filtrado/ordenado/paginado
+  — a listagem dispara uma requisição nova a cada mudança de filtro, página
+  ou coluna ordenada, em vez de carregar tudo uma vez e filtrar no
+  navegador. A busca por nome usa debounce de 300ms (`debounceTime` +
+  `distinctUntilChanged`) para não disparar uma requisição por tecla
+  digitada; mudar o status ou a página dispara na hora. O total usado para
+  habilitar/desabilitar o botão "Adicionar" (limite de 5) continua vindo do
+  `pedidos$` compartilhado (não filtrado) — o total da busca filtrada
+  (`totalElements`) é só o que aparece na tabela/paginador, para não conectar
+  o limite real a um filtro que o usuário pode mudar a qualquer momento.
   Com o limite de 5 pedidos por usuário a paginação tem pouco efeito prático
-  hoje, mas fica pronta caso esse limite mude.
+  hoje, mas fica pronta caso esse limite mude — e o pattern (parâmetros de
+  busca resolvidos no banco, não em memória) é o que escalaria se o limite
+  crescesse.
 - **Polling no dashboard (a cada 20s) complementando o Observable
   compartilhado**: `PedidoService.pedidos$` já atualiza o dashboard
   imediatamente para qualquer ação feita na mesma aba (criar, excluir,
@@ -658,19 +667,20 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 35 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 44 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
-  `PedidoControllerSecurityTest` — contexto Spring completo, sem mocks)
-  rodando contra H2.
-- Frontend: `ng build` (dev e produção) sem erros; 57 testes Jasmine/Karma
+  `PedidoControllerSecurityTest` e `PedidoBuscaControllerTest` — contexto
+  Spring completo, sem mocks) rodando contra H2.
+- Frontend: `ng build` (dev e produção) sem erros; 60 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o
   `AuthService` (sessão em `sessionStorage`, expiração de token), o
-  `HealthService` (up/down/polling), o filtro/busca combinados da listagem
-  de pedidos, a validação e o fluxo de login/cadastro do `LoginComponent`,
-  os cards de resumo/gráficos/polling do `DashboardComponent`, e a
-  validação e o limite de 5 pedidos no `PedidoFormComponent`.
+  `HealthService` (up/down/polling), o filtro/busca/paginação/ordenação da
+  listagem via `/api/pedidos/busca` (incluindo o debounce de 300ms na
+  busca), a validação e o fluxo de login/cadastro do `LoginComponent`, os
+  cards de resumo/gráficos/polling do `DashboardComponent`, e a validação
+  e o limite de 5 pedidos no `PedidoFormComponent`.
 - Verificado que o `ng serve` já em execução recompilou automaticamente
   (watch mode) e está servindo o bundle atualizado (strings como
   `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).

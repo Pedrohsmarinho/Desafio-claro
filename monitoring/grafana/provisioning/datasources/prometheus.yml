@@ -5,9 +5,8 @@ datasources:
     uid: prometheus
     type: prometheus
     access: proxy
-    # Grafana tambem roda com network_mode: host, entao "localhost" e o host
-    # de verdade, onde o Prometheus publica 9090.
-    url: http://localhost:9090
+    # "prometheus" e o nome do servico no docker-compose.yml (rede bridge padrao).
+    url: http://prometheus:9090
     isDefault: true
     editable: true
     jsonData:

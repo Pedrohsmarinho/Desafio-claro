@@ -1,13 +1,13 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { environment } from '../../../../environments/environment';
-import { Pedido, StatusPedido } from '../../../core/models/pedido.model';
+import { PaginaPedidos, Pedido, StatusPedido } from '../../../core/models/pedido.model';
 import { PedidoListComponent } from './pedido-list.component';
 
-describe('PedidoListComponent - filtros', () => {
+describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação server-side)', () => {
   let component: PedidoListComponent;
   let fixture: ComponentFixture<PedidoListComponent>;
   let httpMock: HttpTestingController;
@@ -17,6 +17,16 @@ describe('PedidoListComponent - filtros', () => {
     { id: 2, displayName: 'Pedido Maria Souza', itens: 1, peso: 500, pesoKg: 0.5, status: StatusPedido.PAUSADO },
     { id: 3, displayName: 'Pedido Carlos Lima', itens: 1, peso: 500, pesoKg: 0.5, status: StatusPedido.CANCELADO },
   ];
+
+  const paginaCompleta: PaginaPedidos = {
+    content: pedidos,
+    totalElements: 3,
+    totalPages: 1,
+    number: 0,
+    size: 5,
+  };
+
+  const buscaUrl = `${environment.apiUrl}/pedidos/busca`;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -29,40 +39,96 @@ describe('PedidoListComponent - filtros', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    // PedidoService dispara um GET no proprio construtor, e o ngOnInit do
-    // componente chama carregar() de novo - por isso pode haver mais de uma
-    // requisicao pendente nesse ponto.
+    // PedidoService dispara um GET /api/pedidos no proprio construtor, e o
+    // ngOnInit do componente chama carregar() de novo (para totalPedidosUsuario)
+    // + buscar() (para a tabela, via /api/pedidos/busca) - por isso ha varias
+    // requisicoes pendentes nesse ponto.
     httpMock.match(`${environment.apiUrl}/pedidos`).forEach((req) => req.flush(pedidos));
+    httpMock.expectOne((req) => req.url === buscaUrl).flush(paginaCompleta);
     fixture.detectChanges();
   });
 
   afterEach(() => httpMock.verify());
 
-  it('mostra todos os pedidos sem filtro aplicado', () => {
-    expect(component.dataSource.data.length).toBe(3);
+  it('carrega a primeira página via API ao iniciar', () => {
+    expect(component.pedidos.length).toBe(3);
+    expect(component.totalElements).toBe(3);
+    expect(component.totalPedidosUsuario).toBe(3);
   });
 
-  it('filtra por status', () => {
+  it('dispara uma nova requisição com o status ao mudar o filtro', () => {
     component.filtroStatus = StatusPedido.PAUSADO;
-    component.aplicarFiltros();
+    component.onFiltroStatusChange();
 
-    expect(component.dataSource.data.length).toBe(1);
-    expect(component.dataSource.data[0].displayName).toBe('Pedido Maria Souza');
+    const req = httpMock.expectOne(
+      (r) => r.url === buscaUrl && r.params.get('status') === 'PAUSADO' && r.params.get('page') === '0',
+    );
+    req.flush({ ...paginaCompleta, content: [pedidos[1]], totalElements: 1 });
+
+    expect(component.pedidos.length).toBe(1);
+    expect(component.pedidos[0].displayName).toBe('Pedido Maria Souza');
   });
 
-  it('filtra por termo de busca (case-insensitive)', () => {
-    component.termoBusca = 'CARLOS';
-    component.aplicarFiltros();
+  it('dispara uma nova requisição com o termo de busca, com debounce', fakeAsync(() => {
+    component.termoBusca = 'carlos';
+    component.onBuscaChange();
 
-    expect(component.dataSource.data.length).toBe(1);
-    expect(component.dataSource.data[0].displayName).toBe('Pedido Carlos Lima');
+    httpMock.expectNone((r) => r.url === buscaUrl && r.params.get('busca') === 'carlos');
+
+    tick(300);
+
+    const req = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('busca') === 'carlos');
+    req.flush({ ...paginaCompleta, content: [pedidos[2]], totalElements: 1 });
+
+    expect(component.pedidos.length).toBe(1);
+    expect(component.pedidos[0].displayName).toBe('Pedido Carlos Lima');
+  }));
+
+  it('não dispara requisições extras enquanto o usuário ainda está digitando (distinctUntilChanged/debounce)', fakeAsync(() => {
+    component.termoBusca = 'c';
+    component.onBuscaChange();
+    tick(100);
+    component.termoBusca = 'ca';
+    component.onBuscaChange();
+    tick(100);
+    component.termoBusca = 'car';
+    component.onBuscaChange();
+    tick(300);
+
+    const req = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('busca') === 'car');
+    req.flush({ ...paginaCompleta, content: [], totalElements: 0 });
+
+    expect(component.totalElements).toBe(0);
+  }));
+
+  it('dispara uma nova requisição ao mudar de página', () => {
+    component.onPageChange({ pageIndex: 1, pageSize: 5, length: 10 });
+
+    const req = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '1');
+    req.flush({ ...paginaCompleta, number: 1 });
+
+    expect(component.pedidos.length).toBe(paginaCompleta.content.length);
   });
 
-  it('combina filtro de status e busca', () => {
+  it('dispara uma nova requisição com o campo de ordenação mapeado para o nome usado no backend', () => {
+    component.onSortChange({ active: 'pesoKg', direction: 'desc' });
+
+    const req = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('sort') === 'peso,desc');
+    req.flush(paginaCompleta);
+
+    expect(component.pedidos.length).toBe(paginaCompleta.content.length);
+  });
+
+  it('usa o total de pedidos do usuário (não filtrado) para o limite de 5, não o total da página filtrada', () => {
     component.filtroStatus = StatusPedido.CANCELADO;
-    component.termoBusca = 'joão';
-    component.aplicarFiltros();
+    component.onFiltroStatusChange();
 
-    expect(component.dataSource.data.length).toBe(0);
+    httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('status') === 'CANCELADO')
+      .flush({ ...paginaCompleta, content: [pedidos[2]], totalElements: 1 });
+
+    // mesmo com a busca filtrada retornando so 1 resultado, o total real do
+    // usuario (3) e o que decide se o botao "Adicionar" fica desabilitado
+    expect(component.totalPedidosUsuario).toBe(3);
+    expect(component.podeAtingirLimite()).toBeFalse();
   });
 });

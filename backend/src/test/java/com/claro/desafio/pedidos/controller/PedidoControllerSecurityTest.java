@@ -123,6 +123,30 @@ class PedidoControllerSecurityTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void excluirPedidoExistenteRetorna204() throws Exception {
+        String token = registrarNovoUsuarioERetornarToken();
+        long pedidoId = criarPedido(token, "Pedido a excluir");
+
+        mockMvc.perform(delete("/api/pedidos/{id}", pedidoId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void idGenuinamenteInexistenteRetorna404() throws Exception {
+        String token = registrarNovoUsuarioERetornarToken();
+        long idQueNuncaExistiu = 999_999L;
+
+        mockMvc.perform(patch("/api/pedidos/{id}/status", idQueNuncaExistiu)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "PAUSADO"))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/pedidos/{id}", idQueNuncaExistiu).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound());
+    }
+
     private String registrarNovoUsuarioERetornarToken() throws Exception {
         String email = "usuario-" + UUID.randomUUID() + "@teste.com";
         String body = objectMapper.writeValueAsString(Map.of(

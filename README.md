@@ -333,6 +333,16 @@ Além de métricas (Prometheus), o Grafana também está integrado com **logs**
 (Loki) e **traces distribuídos** (Tempo), formando a stack "LGTM" (Loki,
 Grafana, Tempo, Métricas) da Grafana Labs — não só o Prometheus isolado.
 
+Tracing não estava nos requisitos obrigatórios nem nos diferenciais
+listados no enunciado — é o único item deste projeto que vai além do que
+foi pedido. A justificativa: métricas (Prometheus) dizem *o quê* está
+acontecendo (quantas requisições, quanto tempo, quantos erros) e logs
+(Loki) dizem *o quê aconteceu* em cada evento, mas nenhum dos dois
+responde sozinho *por quê uma requisição específica* foi lenta ou falhou
+— é essa lacuna que o tracing fecha, completando o tripé métricas + logs
++ traces sem, em nenhum momento, atrasar a entrega dos requisitos
+obrigatórios (que foram implementados e validados primeiro).
+
 - **Tracing** (`micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`):
   o Spring instrumenta automaticamente cada requisição HTTP (incluindo os
   filtros de segurança do Spring Security) e exporta os traces via OTLP

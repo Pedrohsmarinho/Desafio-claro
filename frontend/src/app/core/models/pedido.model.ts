@@ -21,6 +21,23 @@ export interface PedidoCreateRequest {
   peso: number; // gramas, já convertido a partir do valor em kg digitado no formulário
 }
 
+/** Espelha o formato de Page<T> retornado por GET /api/pedidos/busca. */
+export interface PaginaPedidos {
+  content: Pedido[];
+  totalElements: number;
+  totalPages: number;
+  number: number; // página atual (0-based)
+  size: number;
+}
+
+export interface FiltroPedidos {
+  status?: StatusPedido | null;
+  busca?: string | null;
+  page: number;
+  size: number;
+  sort?: string | null; // "campo,direcao", ex: "displayName,asc"
+}
+
 export const STATUS_LABELS: Record<StatusPedido, string> = {
   [StatusPedido.EM_PROCESSAMENTO]: 'Em processamento',
   [StatusPedido.PAUSADO]: 'Pausado',

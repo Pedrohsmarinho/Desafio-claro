@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { MatTableDataSource, MatTableModule } from '@angular/material/table';
+import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -11,9 +11,10 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatSort, MatSortModule } from '@angular/material/sort';
-import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
-import { Subscription, combineLatest } from 'rxjs';
+import { MatSort, MatSortModule, Sort } from '@angular/material/sort';
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
   LIMITE_MAXIMO_PEDIDOS,
   Pedido,
@@ -25,6 +26,16 @@ import { PedidoService } from '../../../core/services/pedido.service';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 
 type FiltroStatus = StatusPedido | 'TODOS';
+
+/** Mapeia o id da coluna ordenavel (mat-sort-header) para o nome do campo na entidade do backend. */
+const CAMPO_ORDENACAO_BACKEND: Record<string, string> = {
+  cliente: 'displayName',
+  itens: 'itens',
+  pesoKg: 'peso',
+  status: 'status',
+};
+
+const DEBOUNCE_BUSCA_MS = 300;
 
 @Component({
   selector: 'app-pedido-list',
@@ -47,7 +58,8 @@ type FiltroStatus = StatusPedido | 'TODOS';
   styleUrl: './pedido-list.component.scss',
 })
 export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
-  private subscription?: Subscription;
+  private readonly subscriptions = new Subscription();
+  private readonly termoBuscaSubject = new Subject<string>();
 
   @ViewChild(MatSort) sort!: MatSort;
   @ViewChild(MatPaginator) paginator!: MatPaginator;
@@ -57,14 +69,29 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   readonly StatusPedido = StatusPedido;
   readonly opcoesFiltroStatus: FiltroStatus[] = ['TODOS', ...Object.values(StatusPedido)];
+  readonly pageSizeOptions = [5, 10, 25];
 
+  /** Página atual retornada por GET /api/pedidos/busca - reflete filtro/paginação/ordenação vigentes. */
   pedidos: Pedido[] = [];
-  dataSource = new MatTableDataSource<Pedido>([]);
+  totalElements = 0;
   carregando = true;
+
+  /**
+   * Total de pedidos do usuário sem nenhum filtro aplicado (via pedidos$, o
+   * cache compartilhado com o dashboard/cadastro) - usado para o cabeçalho
+   * ("X de 5 pedidos") e para habilitar/desabilitar o botão "Adicionar",
+   * que precisa do limite real, não do total já filtrado pela busca/status.
+   */
+  totalPedidosUsuario = 0;
   apiIndisponivel = false;
 
   filtroStatus: FiltroStatus = 'TODOS';
   termoBusca = '';
+
+  private pageIndex = 0;
+  private pageSize = 5;
+  private sortActive = '';
+  private sortDirection: 'asc' | 'desc' | '' = '';
 
   constructor(
     private pedidoService: PedidoService,
@@ -73,37 +100,57 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.pageSize = this.pageSizeOptions[0];
+
+    this.subscriptions.add(
+      this.termoBuscaSubject.pipe(debounceTime(DEBOUNCE_BUSCA_MS), distinctUntilChanged()).subscribe(() => {
+        this.pageIndex = 0;
+        this.paginator?.firstPage();
+        this.buscar();
+      }),
+    );
+
+    this.subscriptions.add(
+      this.pedidoService.pedidos$.subscribe((pedidos) => (this.totalPedidosUsuario = pedidos.length)),
+    );
+    this.subscriptions.add(
+      this.pedidoService.apiDisponivel$.subscribe((disponivel) => (this.apiIndisponivel = !disponivel)),
+    );
+
     this.pedidoService.carregar();
-    this.subscription = combineLatest([
-      this.pedidoService.pedidos$,
-      this.pedidoService.apiDisponivel$,
-    ]).subscribe(([pedidos, apiDisponivel]) => {
-      this.pedidos = pedidos;
-      this.apiIndisponivel = !apiDisponivel;
-      this.carregando = false;
-      this.aplicarFiltros();
-    });
+    this.buscar();
   }
 
   ngAfterViewInit(): void {
-    this.dataSource.sort = this.sort;
-    this.dataSource.paginator = this.paginator;
+    // paginação e ordenação são resolvidas no backend (ver buscar()) - nada a conectar em MatTableDataSource aqui.
   }
 
   ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
+    this.subscriptions.unsubscribe();
   }
 
-  aplicarFiltros(): void {
-    const termo = this.termoBusca.trim().toLowerCase();
-    this.dataSource.data = this.pedidos.filter(
-      (pedido) =>
-        (this.filtroStatus === 'TODOS' || pedido.status === this.filtroStatus) &&
-        (!termo || pedido.displayName.toLowerCase().includes(termo)),
-    );
-    if (this.paginator) {
-      this.paginator.firstPage();
-    }
+  onBuscaChange(): void {
+    this.termoBuscaSubject.next(this.termoBusca);
+  }
+
+  onFiltroStatusChange(): void {
+    this.pageIndex = 0;
+    this.paginator?.firstPage();
+    this.buscar();
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.buscar();
+  }
+
+  onSortChange(sort: Sort): void {
+    this.sortActive = sort.active;
+    this.sortDirection = sort.direction;
+    this.pageIndex = 0;
+    this.paginator?.firstPage();
+    this.buscar();
   }
 
   rotuloFiltroStatus(status: FiltroStatus): string {
@@ -111,7 +158,7 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   podeAtingirLimite(): boolean {
-    return this.pedidos.length >= this.limiteMaximo;
+    return this.totalPedidosUsuario >= this.limiteMaximo;
   }
 
   acaoHabilitada(pedido: Pedido, novoStatus: StatusPedido): boolean {
@@ -128,7 +175,10 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
 
   alterarStatus(pedido: Pedido, novoStatus: StatusPedido): void {
     this.pedidoService.alterarStatus(pedido, novoStatus).subscribe({
-      next: () => this.notificar(`Pedido "${pedido.displayName}" atualizado para ${this.statusLabels[novoStatus]}`),
+      next: () => {
+        this.notificar(`Pedido "${pedido.displayName}" atualizado para ${this.statusLabels[novoStatus]}`);
+        this.buscar();
+      },
       error: (err) => this.notificar(this.extrairMensagemErro(err), true),
     });
   }
@@ -146,10 +196,43 @@ export class PedidoListComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
       this.pedidoService.excluir(pedido).subscribe({
-        next: () => this.notificar(`Pedido "${pedido.displayName}" excluído com sucesso`),
+        next: () => {
+          this.notificar(`Pedido "${pedido.displayName}" excluído com sucesso`);
+          this.buscar();
+        },
         error: (err) => this.notificar(this.extrairMensagemErro(err), true),
       });
     });
+  }
+
+  private buscar(): void {
+    this.carregando = true;
+
+    const status = this.filtroStatus === 'TODOS' ? null : this.filtroStatus;
+    const campoBackend = this.sortActive ? CAMPO_ORDENACAO_BACKEND[this.sortActive] ?? this.sortActive : null;
+    const sort = campoBackend && this.sortDirection ? `${campoBackend},${this.sortDirection}` : null;
+
+    this.pedidoService
+      .buscarPagina({
+        status,
+        busca: this.termoBusca || null,
+        page: this.pageIndex,
+        size: this.pageSize,
+        sort,
+      })
+      .subscribe({
+        next: (pagina) => {
+          this.pedidos = pagina.content;
+          this.totalElements = pagina.totalElements;
+          this.carregando = false;
+        },
+        error: (err) => {
+          this.carregando = false;
+          this.pedidos = [];
+          this.totalElements = 0;
+          this.notificar(this.extrairMensagemErro(err), true);
+        },
+      });
   }
 
   private notificar(mensagem: string, erro = false): void {

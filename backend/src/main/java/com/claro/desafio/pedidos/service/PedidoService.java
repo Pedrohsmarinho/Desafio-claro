@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -50,6 +52,17 @@ public class PedidoService {
 
     public List<Pedido> listarTodos(Long usuarioId) {
         return pedidoRepository.findByUsuarioId(usuarioId);
+    }
+
+    /**
+     * Filtro (status/busca por nome, ambos opcionais), ordenacao e paginacao
+     * resolvidos no banco - usada pela listagem paginada da API, distinta de
+     * {@link #listarTodos} (que continua retornando tudo de uma vez, usado
+     * pelo dashboard e pela checagem de limite no cadastro).
+     */
+    public Page<Pedido> buscar(Long usuarioId, StatusPedido status, String busca, Pageable pageable) {
+        String buscaNormalizada = (busca == null || busca.isBlank()) ? null : busca.trim();
+        return pedidoRepository.buscar(usuarioId, status, buscaNormalizada, pageable);
     }
 
     public Pedido buscarPorId(Long id, Long usuarioId) {

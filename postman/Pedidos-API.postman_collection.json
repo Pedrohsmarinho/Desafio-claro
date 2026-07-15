@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b1e2c3d4-1111-4a2b-9c3d-pedidosapi001",
     "name": "Pedidos API - Desafio Tecnico Claro",
-    "description": "Colecao da API de gestao de pedidos de e-commerce, multi-tenant com autenticacao JWT. Os requests de Login e Registrar tem um script de teste que salva automaticamente o token retornado na variavel de colecao {{token}}; os requests de Pedidos ja usam Authorization: Bearer {{token}}. Cada request tem exemplos salvos (sucesso e erro) que podem ser usados para gerar um Mock Server no Postman (botao direito na colecao > Mock Collection).",
+    "description": "Colecao da API de gestao de pedidos de e-commerce, multi-tenant com autenticacao JWT. Os requests de Login e Registrar tem um script de teste que salva automaticamente o token retornado na variavel de colecao {{token}}; os requests de Pedidos ja usam Authorization: Bearer {{token}}. Cada request tem exemplos salvos (sucesso e erro) que podem ser usados para gerar um Mock Server no Postman (botao direito na colecao > Mock Collection). O baseUrl (http://localhost:8080) funciona tanto rodando o backend localmente (./mvnw spring-boot:run, apos ./create-db-user.sh na raiz do repo) quanto via 'docker compose up' - a porta publicada e a mesma nos dois casos.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -321,6 +321,54 @@
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "cookie": [],
               "body": "{\n  \"timestamp\": \"2026-07-14T14:23:41.415596739Z\",\n  \"status\": 401,\n  \"error\": \"Unauthorized\",\n  \"message\": \"Token ausente, invalido ou expirado\",\n  \"path\": \"/api/pedidos\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Buscar Pedidos - filtro, paginacao e ordenacao",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pedidos/busca?status=EM_PROCESSAMENTO&busca=&page=0&size=5&sort=displayName,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pedidos", "busca"],
+              "query": [
+                { "key": "status", "value": "EM_PROCESSAMENTO", "description": "Opcional - filtra por status exato" },
+                { "key": "busca", "value": "", "description": "Opcional - filtra por nome do cliente (contem, case-insensitive)" },
+                { "key": "page", "value": "0", "description": "Pagina, comecando em 0" },
+                { "key": "size", "value": "5" },
+                { "key": "sort", "value": "displayName,asc", "description": "campo,direcao - campos: id, displayName, itens, peso, status" }
+              ]
+            },
+            "description": "Filtro (status/busca), paginacao e ordenacao resolvidos no banco (Spring Data Page). Usada pela listagem do frontend, que dispara uma requisicao nova a cada mudanca de filtro/pagina/coluna ordenada."
+          },
+          "response": [
+            {
+              "name": "200 OK - pagina filtrada",
+              "originalRequest": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+                "url": {
+                  "raw": "{{baseUrl}}/api/pedidos/busca?status=EM_PROCESSAMENTO&page=0&size=5&sort=displayName,asc",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "pedidos", "busca"],
+                  "query": [
+                    { "key": "status", "value": "EM_PROCESSAMENTO" },
+                    { "key": "page", "value": "0" },
+                    { "key": "size", "value": "5" },
+                    { "key": "sort", "value": "displayName,asc" }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "cookie": [],
+              "body": "{\n  \"content\": [\n    {\n      \"id\": 1,\n      \"displayName\": \"Pedido #1 - João Silva\",\n      \"itens\": 2,\n      \"peso\": 1024,\n      \"pesoKg\": 1.024,\n      \"status\": \"EM_PROCESSAMENTO\"\n    }\n  ],\n  \"totalElements\": 1,\n  \"totalPages\": 1,\n  \"number\": 0,\n  \"size\": 5\n}"
             }
           ]
         },

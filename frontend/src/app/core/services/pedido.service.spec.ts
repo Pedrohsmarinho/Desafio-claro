@@ -105,6 +105,55 @@ describe('PedidoService', () => {
     req.error(new ProgressEvent('network error'), { status: 0, statusText: 'Unknown Error' });
   });
 
+  it('propaga erro 422 (transicao invalida) da API ao alterar status de pedido real', (done) => {
+    const pedidoReal: Pedido = {
+      id: 7,
+      displayName: 'Cliente Real',
+      itens: 1,
+      peso: 100,
+      pesoKg: 0.1,
+      status: StatusPedido.CANCELADO,
+    };
+
+    service.alterarStatus(pedidoReal, StatusPedido.PAUSADO).subscribe({
+      next: () => fail('nao deveria ter sucesso'),
+      error: (err: HttpErrorResponse) => {
+        expect(err.status).toBe(422);
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/7/status`);
+    expect(req.request.method).toBe('PATCH');
+    req.flush(
+      { message: 'Transicao invalida de CANCELADO para PAUSADO' },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+  });
+
+  it('propaga erro 404 da API ao excluir pedido de outro usuario/inexistente', (done) => {
+    const pedidoReal: Pedido = {
+      id: 8,
+      displayName: 'Cliente Real',
+      itens: 1,
+      peso: 100,
+      pesoKg: 0.1,
+      status: StatusPedido.EM_PROCESSAMENTO,
+    };
+
+    service.excluir(pedidoReal).subscribe({
+      next: () => fail('nao deveria ter sucesso'),
+      error: (err: HttpErrorResponse) => {
+        expect(err.status).toBe(404);
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/8`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ message: 'Pedido nao encontrado: id=8' }, { status: 404, statusText: 'Not Found' });
+  });
+
   it('altera status de pedido local respeitando a maquina de transicao', (done) => {
     const pedidoLocal: Pedido = {
       id: 'local-123',

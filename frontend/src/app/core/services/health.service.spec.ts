@@ -55,16 +55,16 @@ describe('HealthService', () => {
     discardPeriodicTasks();
   }));
 
-  it('faz polling periodico a cada 15 segundos', fakeAsync(() => {
+  it('faz polling periodico a cada 30 segundos', fakeAsync(() => {
     const service = TestBed.inject(HealthService);
     tick();
 
     httpMock.expectOne(`${environment.actuatorUrl}/health`).flush({ status: 'UP' });
 
-    tick(15_000);
+    tick(30_000);
     httpMock.expectOne(`${environment.actuatorUrl}/health`).flush({ status: 'UP' });
 
-    tick(15_000);
+    tick(30_000);
     httpMock.expectOne(`${environment.actuatorUrl}/health`).flush({ status: 'UP' });
 
     let ultimoStatus: string | undefined;

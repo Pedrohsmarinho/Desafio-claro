@@ -46,6 +46,14 @@ echo "-- Listar pedidos do usuario autenticado --"
 curl -sS -w '\nHTTP:%{http_code}\n' "$BASE_URL/api/pedidos" \
   -H "Authorization: Bearer $TOKEN"
 
+echo "-- Buscar pedidos com filtro por status, paginacao e ordenacao --"
+curl -sS -w '\nHTTP:%{http_code}\n' "$BASE_URL/api/pedidos/busca?status=EM_PROCESSAMENTO&page=0&size=5&sort=displayName,asc" \
+  -H "Authorization: Bearer $TOKEN"
+
+echo "-- Buscar pedidos por nome do cliente (contem, case-insensitive) --"
+curl -sS -w '\nHTTP:%{http_code}\n' "$BASE_URL/api/pedidos/busca?busca=silva" \
+  -H "Authorization: Bearer $TOKEN"
+
 echo "-- Criar pedido - sucesso (201) --"
 curl -sS -w '\nHTTP:%{http_code}\n' -X POST "$BASE_URL/api/pedidos" \
   -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \

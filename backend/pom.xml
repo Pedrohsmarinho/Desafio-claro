@@ -168,6 +168,54 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<!--
+				Cobertura de codigo (JaCoCo). prepare-agent instrumenta a JVM antes
+				dos testes (fase initialize); report gera o HTML em
+				target/site/jacoco/index.html logo apos os testes rodarem (fase
+				test, executado depois do surefire por estar declarado depois dele
+				no pom). Sem jacoco:check por enquanto - nenhum threshold minimo de
+				cobertura configurado ainda, de proposito (ver README): queremos ver
+				o numero real antes de definir uma meta.
+
+				Exclusoes do relatorio (nao da execucao dos testes, so da metrica de
+				cobertura - todo o codigo ainda roda normalmente):
+				  - *Application.class: classe main, sem logica (so sobe o Spring)
+				  - config/SecurityConfig, config/OpenApiConfig: configuracao pura
+				    (wiring de beans), sem branches/logica condicional
+				  - dto/**: records simples (campos + no maximo uma conversao trivial
+				    em PedidoResponse.from), sem logica de negocio
+				  - service/exception/**: excecoes simples (so guardam uma mensagem
+				    no construtor), sem logica propria
+				-->
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.12</version>
+				<configuration>
+					<excludes>
+						<exclude>**/PedidosApiApplication.class</exclude>
+						<exclude>**/config/SecurityConfig.class</exclude>
+						<exclude>**/config/OpenApiConfig.class</exclude>
+						<exclude>**/dto/**</exclude>
+						<exclude>**/service/exception/**</exclude>
+					</excludes>
+				</configuration>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 		</plugins>
 	</build>
 

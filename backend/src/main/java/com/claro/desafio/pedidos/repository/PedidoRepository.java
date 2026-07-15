@@ -34,6 +34,15 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     /** Usado para checar posse do pedido: um id que existe mas e de outro usuario deve "nao ser encontrado". */
     Optional<Pedido> findByIdAndUsuarioId(Long id, Long usuarioId);
 
+    /**
+     * Contagem por status **escopada a um usuario** - usada pelo endpoint
+     * GET /api/dashboard/metricas (visao do usuario logado no frontend),
+     * distinta de {@link #countByStatus}, que e a contagem global usada nas
+     * metricas de observabilidade (Grafana/Prometheus). Ver PedidoService e
+     * README para a justificativa dessa distincao.
+     */
+    long countByUsuarioIdAndStatus(Long usuarioId, StatusPedido status);
+
     /** Usado nas metricas de negocio (pedidos_by_status) - contagem global, entre todos os usuarios. */
     long countByStatus(StatusPedido status);
 

@@ -36,7 +36,9 @@ services:
       DB_URL: ${DB_URL:-jdbc:mariadb://mariadb:3306/pedidos_db}
       DB_USERNAME: ${DB_USERNAME:-pedidos_user}
       DB_PASSWORD: ${DB_PASSWORD:-pedidos_pass}
-      JWT_SECRET: ${JWT_SECRET:-WrFvuOmUSYFfbnSRaWDnhGJtws-JPFFuiBf2CcJUZZM917LeTkX-5nqRqoPA3ecE}
+      # sem default: precisa vir do .env na raiz do projeto (gitignored, ver
+      # .env.example) - nunca commitar o valor real do segredo do JWT.
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env (ver .env.example)}
       OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://tempo:4318/v1/traces}
     depends_on:
       mariadb:

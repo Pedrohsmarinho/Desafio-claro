@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b1e2c3d4-1111-4a2b-9c3d-pedidosapi001",
     "name": "Pedidos API - Desafio Tecnico Claro",
-    "description": "Colecao da API de gestao de pedidos de e-commerce, multi-tenant com autenticacao JWT. Os requests de Login e Registrar tem um script de teste que salva automaticamente o token retornado na variavel de colecao {{token}}; os requests de Pedidos ja usam Authorization: Bearer {{token}}. Cada request tem exemplos salvos (sucesso e erro) que podem ser usados para gerar um Mock Server no Postman (botao direito na colecao > Mock Collection).",
+    "description": "Colecao da API de gestao de pedidos de e-commerce, multi-tenant com autenticacao JWT. Os requests de Login e Registrar tem um script de teste que salva automaticamente o token retornado na variavel de colecao {{token}}; os requests de Pedidos ja usam Authorization: Bearer {{token}}. Cada request tem exemplos salvos (sucesso e erro) que podem ser usados para gerar um Mock Server no Postman (botao direito na colecao > Mock Collection). O baseUrl (http://localhost:8080) funciona tanto rodando o backend localmente (./mvnw spring-boot:run, apos ./create-db-user.sh na raiz do repo) quanto via 'docker compose up' - a porta publicada e a mesma nos dois casos.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

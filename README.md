@@ -13,6 +13,7 @@ diferencial.
 /monitoring -> configs de Prometheus/Loki/Promtail/Tempo + dashboards/provisioning do Grafana
 /postman    -> collection + environment do Postman e script de curl
 docker-compose.yml
+create-db-user.sh -> cria o banco/usuario do MariaDB (fluxo local, sem Docker)
 CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 ```
 
@@ -45,10 +46,11 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 - [x] Frontend: filtro por status + busca por nome, paginação/ordenação da
       tabela, indicador de saúde da API (`/actuator/health`), polling no
       dashboard.
-- [x] Docker Compose completo (backend, frontend, Prometheus, **Loki, Tempo**,
-      Grafana) com tracing distribuído, logs centralizados e um único
-      dashboard provisionado automaticamente (negócio, saúde e visão técnica
-      juntos).
+- [x] Docker Compose completo (backend, frontend, **MariaDB**, Prometheus,
+      Loki, Tempo, Grafana) — um único `docker compose up --build`, sem
+      pré-requisito externo — com tracing distribuído, logs centralizados
+      e um único dashboard provisionado automaticamente (negócio, saúde e
+      visão técnica juntos).
 - [x] Commits no Git organizados por Gitflow (`main`/`develop`,
       Conventional Commits), release `v1.0.0` taggeada, proteção de branch
       na `main` (PR obrigatório, sem force-push, `enforce_admins`), tudo
@@ -60,7 +62,15 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 
 Pré-requisito: um MariaDB acessível em `localhost:3306` com o schema e
 usuário abaixo (ajuste via variáveis de ambiente `DB_URL`/`DB_USERNAME`/
-`DB_PASSWORD` se preferir outros valores):
+`DB_PASSWORD` se preferir outros valores). O script `create-db-user.sh`
+na raiz do repositório automatiza esse setup (requer um cliente
+`mysql`/`mariadb` e acesso admin ao servidor local):
+
+```bash
+./create-db-user.sh
+```
+
+Ou manualmente:
 
 ```sql
 CREATE DATABASE IF NOT EXISTS pedidos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -73,6 +83,9 @@ FLUSH PRIVILEGES;
 cd backend
 ./mvnw spring-boot:run
 ```
+
+> Rodando via Docker Compose? Esse passo não é necessário — o MariaDB é
+> containerizado e criado automaticamente (ver seção seguinte).
 
 A API sobe em `http://localhost:8080`. O schema (tabela `pedidos`) é criado/
 atualizado automaticamente pelo Hibernate (`ddl-auto: update`) na primeira
@@ -102,17 +115,25 @@ A aplicação sobe em `http://localhost:4200` e consome a API em
 
 ## Como executar (via Docker Compose)
 
-Pré-requisito: o mesmo MariaDB local descrito acima, rodando em
-`localhost:3306` (ver seção anterior para o `CREATE DATABASE`/`CREATE USER`).
-O Compose sobe backend, frontend e a stack completa de observabilidade —
-**Prometheus + Loki + Tempo + Grafana** (o "LGTM stack" da Grafana Labs) —
-mas **não** o MariaDB (decisão documentada em
-[Decisões técnicas — Backend](#decisões-técnicas--backend)).
+Sem pré-requisitos externos: um único comando sobe **tudo**, incluindo o
+banco de dados — backend, frontend, MariaDB e a stack completa de
+observabilidade (**Prometheus + Loki + Tempo + Grafana**, o "LGTM stack"
+da Grafana Labs).
 
 ```bash
-docker compose build
-docker compose up -d
+docker compose up --build -d
 ```
+
+Para começar do zero (apaga também os volumes — dados do MariaDB, Grafana,
+Loki e Tempo):
+
+```bash
+docker compose down -v && docker compose up --build -d
+```
+
+O backend só inicia depois que o MariaDB reporta saudável
+(`depends_on.condition: service_healthy`), então não há necessidade de
+esperar manualmente ou reiniciar o backend na primeira subida.
 
 | Serviço | URL |
 |---|---|
@@ -123,6 +144,7 @@ docker compose up -d
 | Loki | http://localhost:3100 (sem UI própria; consultado via Grafana) |
 | Tempo | http://localhost:3200 (sem UI própria; consultado via Grafana) |
 | Grafana | http://localhost:3000 (usuário `admin`, senha `admin`) |
+| MariaDB | `localhost:3307` (usuário `pedidos_user`, senha `pedidos_pass`, banco `pedidos_db`) — porta `3307`, não `3306`, para não conflitar com um MariaDB local já rodando; entre containers o acesso é via o nome de serviço `mariadb:3306` |
 
 Um único dashboard **"Pedidos API - Visão Geral e Saúde"** já vem
 provisionado automaticamente no Grafana (login → Dashboards), reunindo
@@ -152,38 +174,30 @@ Para derrubar tudo: `docker compose down` (os dados de Grafana/Loki/Tempo
 persistem nos respectivos volumes; para limpar também:
 `docker compose down -v`).
 
-### Trade-off: MariaDB local, não containerizado
+### MariaDB containerizado (e por que isso simplificou a rede)
 
-Os serviços `backend`, `prometheus` e `grafana` rodam com
-`network_mode: host` (Linux) — decisão direta do trade-off de manter o
-MariaDB local (fora do Compose, por pedido do usuário durante o
-desenvolvimento): o MariaDB deste ambiente escuta só em `127.0.0.1:3306`,
-e bridge networking + `host.docker.internal` **não alcançaria** um serviço
-bindado apenas em loopback (um problema comum e não muito óbvio na hora de
-misturar container com serviço local). `network_mode: host` faz o
-container enxergar `localhost` exatamente como o host enxerga, o que
-resolve isso sem precisar reconfigurar o `bind-address` do MariaDB.
+Nas primeiras versões deste Compose, o MariaDB rodava local (fora do
+Compose, por decisão de desenvolvimento), escutando só em
+`127.0.0.1:3306`. Isso forçava todos os serviços que precisavam alcançá-lo
+— `backend`, e por consequência `prometheus`/`loki`/`promtail`/`tempo`/
+`grafana`, que precisavam se enxergar entre si e ao backend — a rodar com
+`network_mode: host` (Linux-only; bridge + `host.docker.internal` não
+alcançaria um serviço bindado apenas em loopback).
 
-Essa escolha tem duas consequências que valem registrar:
+Com o MariaDB agora containerizado (serviço `mariadb`, com `healthcheck` e
+volume nomeado `mariadb-data` para persistência), essa restrição deixou de
+existir: todos os serviços voltaram à rede **bridge padrão do Compose**,
+que resolve os nomes de serviço via DNS interno (`backend`, `mariadb`,
+`prometheus`, `loki`, `tempo` — ver `monitoring/prometheus.yml`,
+`monitoring/promtail-config.yml` e os datasources do Grafana, todos
+apontando para nomes de serviço em vez de `localhost`). Isso também torna
+a stack portátil para Docker Desktop (Mac/Windows), que não suporta
+`network_mode: host` da mesma forma que o Docker nativo do Linux.
 
-- **Só funciona em Docker no Linux** — Docker Desktop (Mac/Windows) não
-  suporta `network_mode: host` da mesma forma (a VM interna do Docker
-  Desktop já isola a rede do container da rede real do host). Rodando em
-  Linux nativo (como este ambiente), funciona sem ressalvas.
-- **Prometheus/Loki/Promtail/Tempo/Grafana também usam host networking**,
-  não por precisarem falar com o MariaDB, mas para poderem se enxergar
-  entre si e ao backend (`localhost:8080`, `:9090`, `:3100`, `:3200`) da
-  forma mais simples, sem precisar de uma rede Docker customizada com DNS
-  por nome de serviço só para esse grupo. Só o `frontend` fica de fora
-  (bridge + porta publicada), já que ele não precisa alcançar nenhum
-  desses serviços a nível de Docker (as chamadas partem do navegador do
-  usuário, não do container).
-
-Se o MariaDB também fosse containerizado (item já registrado em
-["O que eu faria diferente com mais tempo"](#o-que-eu-faria-diferente-com-mais-tempo)),
-todos os serviços poderiam usar bridge networking padrão do Compose, com
-nomes de serviço como hostname (`mariadb`, `backend`, etc.) — mais portável
-entre sistemas operacionais.
+O único serviço que continua acessível via `localhost` a partir do host é
+o `backend` (porta `8080` publicada) — porque o frontend roda no
+**navegador do usuário**, fora da rede do Compose, e precisa de uma porta
+publicada de verdade para chamar a API (ver `environment.ts`).
 
 ## Modelo de domínio — Pedido
 
@@ -318,6 +332,16 @@ Gauge, que satisfaz a mesma).
 Além de métricas (Prometheus), o Grafana também está integrado com **logs**
 (Loki) e **traces distribuídos** (Tempo), formando a stack "LGTM" (Loki,
 Grafana, Tempo, Métricas) da Grafana Labs — não só o Prometheus isolado.
+
+Tracing não estava nos requisitos obrigatórios nem nos diferenciais
+listados no enunciado — é o único item deste projeto que vai além do que
+foi pedido. A justificativa: métricas (Prometheus) dizem *o quê* está
+acontecendo (quantas requisições, quanto tempo, quantos erros) e logs
+(Loki) dizem *o quê aconteceu* em cada evento, mas nenhum dos dois
+responde sozinho *por quê uma requisição específica* foi lenta ou falhou
+— é essa lacuna que o tracing fecha, completando o tripé métricas + logs
++ traces sem, em nenhum momento, atrasar a entrega dos requisitos
+obrigatórios (que foram implementados e validados primeiro).
 
 - **Tracing** (`micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp`):
   o Spring instrumenta automaticamente cada requisição HTTP (incluindo os
@@ -680,16 +704,14 @@ logado (deve redirecionar para `/login`).
   validação manual do backend via curl/Postman. Um suite E2E cobrindo os
   fluxos completos (login → cadastro de pedido → mudança de status →
   logout) daria mais confiança do que a combinação atual.
-- **MariaDB containerizado no Docker Compose**: por pedido do usuário, o
-  MariaDB usado neste desafio é uma instância local (fora do Compose), o
-  que forçou `backend`/`prometheus`/`grafana` a rodarem com
-  `network_mode: host` (só funciona em Docker no Linux — ver
-  [trade-off documentado](#trade-off-mariadb-local-não-containerizado)).
-  Para um ambiente "sobe em qualquer SO com um comando" de verdade, valeria
-  adicionar um serviço `mariadb` ao `docker-compose.yml` com volume
-  persistente e voltar todos os serviços para bridge networking padrão
-  (nome do serviço como hostname).
 - **CI configurado** (GitHub Actions): rodar os testes (JUnit + Jasmine) e
   o build do Docker automaticamente a cada push/PR, aproveitando a proteção
   de branch já configurada na `main` (que hoje exige PR, mas não exige um
   check de CI passando).
+- **Prints/GIF da aplicação e do dashboard Grafana no README**: o ambiente
+  usado para construir este projeto não teve, neste momento, acesso a um
+  navegador interativo para capturar telas. Toda a validação visual foi
+  feita via `curl`, testes automatizados e consultas diretas às APIs do
+  Grafana/Prometheus/Loki/Tempo (ver seções de decisões técnicas) — mas
+  substituir isso por capturas reais deixaria a documentação mais concreta
+  para quem for avaliar sem rodar o projeto localmente.

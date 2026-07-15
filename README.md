@@ -708,3 +708,10 @@ logado (deve redirecionar para `/login`).
   o build do Docker automaticamente a cada push/PR, aproveitando a proteção
   de branch já configurada na `main` (que hoje exige PR, mas não exige um
   check de CI passando).
+- **Prints/GIF da aplicação e do dashboard Grafana no README**: o ambiente
+  usado para construir este projeto não teve, neste momento, acesso a um
+  navegador interativo para capturar telas. Toda a validação visual foi
+  feita via `curl`, testes automatizados e consultas diretas às APIs do
+  Grafana/Prometheus/Loki/Tempo (ver seções de decisões técnicas) — mas
+  substituir isso por capturas reais deixaria a documentação mais concreta
+  para quem for avaliar sem rodar o projeto localmente.

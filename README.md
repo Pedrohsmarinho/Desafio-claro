@@ -144,7 +144,7 @@ esperar manualmente ou reiniciar o backend na primeira subida.
 | Loki | http://localhost:3100 (sem UI própria; consultado via Grafana) |
 | Tempo | http://localhost:3200 (sem UI própria; consultado via Grafana) |
 | Grafana | http://localhost:3000 (usuário `admin`, senha `admin`) |
-| MariaDB | `localhost:3306` não é publicado por padrão (só acessível entre os containers, via o nome de serviço `mariadb`) |
+| MariaDB | `localhost:3307` (usuário `pedidos_user`, senha `pedidos_pass`, banco `pedidos_db`) — porta `3307`, não `3306`, para não conflitar com um MariaDB local já rodando; entre containers o acesso é via o nome de serviço `mariadb:3306` |
 
 Um único dashboard **"Pedidos API - Visão Geral e Saúde"** já vem
 provisionado automaticamente no Grafana (login → Dashboards), reunindo

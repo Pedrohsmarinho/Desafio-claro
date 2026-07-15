@@ -10,9 +10,11 @@ services:
       - "3307:3306"
     environment:
       MARIADB_DATABASE: pedidos_db
-      MARIADB_USER: pedidos_user
-      MARIADB_PASSWORD: pedidos_pass
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-troque_esta_senha_root}
+      # sem default: precisam vir do .env na raiz do projeto (gitignored, ver
+      # .env.example) - nunca commitar usuario/senha reais do banco.
+      MARIADB_USER: ${DB_USERNAME:?defina DB_USERNAME no arquivo .env (ver .env.example)}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no arquivo .env (ver .env.example)}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?defina MARIADB_ROOT_PASSWORD no arquivo .env (ver .env.example)}
     volumes:
       - mariadb-data:/var/lib/mysql
     healthcheck:
@@ -34,8 +36,10 @@ services:
       # 127.0.0.1; agora que o banco tambem esta containerizado, a rede
       # bridge padrao resolve os nomes de servico entre si sem problema.
       DB_URL: ${DB_URL:-jdbc:mariadb://mariadb:3306/pedidos_db}
-      DB_USERNAME: ${DB_USERNAME:-pedidos_user}
-      DB_PASSWORD: ${DB_PASSWORD:-pedidos_pass}
+      # sem default: precisam vir do .env na raiz do projeto (gitignored, ver
+      # .env.example) - nunca commitar usuario/senha reais do banco.
+      DB_USERNAME: ${DB_USERNAME:?defina DB_USERNAME no arquivo .env (ver .env.example)}
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no arquivo .env (ver .env.example)}
       # sem default: precisa vir do .env na raiz do projeto (gitignored, ver
       # .env.example) - nunca commitar o valor real do segredo do JWT.
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env (ver .env.example)}

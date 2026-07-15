@@ -1,11 +1,12 @@
 package com.claro.desafio.pedidos.dto;
 
-import com.claro.desafio.pedidos.domain.Pedido;
 import com.claro.desafio.pedidos.domain.StatusPedido;
 
 /**
  * pesoKg e derivado de peso (gramas) apenas para conveniencia do frontend;
- * a fonte da verdade continua sendo o peso em gramas.
+ * a fonte da verdade continua sendo o peso em gramas. A conversao
+ * Pedido -> PedidoResponse e feita pelo PedidoMapper (MapStruct), nunca
+ * manualmente.
  */
 public record PedidoResponse(
         Long id,
@@ -15,14 +16,4 @@ public record PedidoResponse(
         double pesoKg,
         StatusPedido status
 ) {
-    public static PedidoResponse from(Pedido pedido) {
-        return new PedidoResponse(
-                pedido.getId(),
-                pedido.getDisplayName(),
-                pedido.getItens(),
-                pedido.getPeso(),
-                pedido.getPeso() / 1000.0,
-                pedido.getStatus()
-        );
-    }
 }

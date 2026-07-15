@@ -16,3 +16,6 @@ frontend/.angular/
 
 # Logs locais
 *.log
+
+# Secrets locais (ver .env.example)
+.env

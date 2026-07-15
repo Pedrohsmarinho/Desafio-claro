@@ -79,13 +79,18 @@ GRANT ALL PRIVILEGES ON pedidos_db.* TO 'pedidos_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
+Rode com o profile `local` (usa `application-local.yml`: MariaDB em
+`localhost:3306` e um segredo de JWT de desenvolvimento, só para essa
+situação — nunca usado no Docker Compose):
+
 ```bash
 cd backend
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 > Rodando via Docker Compose? Esse passo não é necessário — o MariaDB é
-> containerizado e criado automaticamente (ver seção seguinte).
+> containerizado e criado automaticamente (ver seção seguinte), e o profile
+> default (`application.yml`, sem `local`) já é o usado lá dentro.
 
 A API sobe em `http://localhost:8080`. O schema (tabela `pedidos`) é criado/
 atualizado automaticamente pelo Hibernate (`ddl-auto: update`) na primeira
@@ -115,10 +120,19 @@ A aplicação sobe em `http://localhost:4200` e consome a API em
 
 ## Como executar (via Docker Compose)
 
-Sem pré-requisitos externos: um único comando sobe **tudo**, incluindo o
-banco de dados — backend, frontend, MariaDB e a stack completa de
-observabilidade (**Prometheus + Loki + Tempo + Grafana**, o "LGTM stack"
-da Grafana Labs).
+Sem pré-requisitos externos além de criar o arquivo de segredos locais: um
+único comando sobe **tudo**, incluindo o banco de dados — backend, frontend,
+MariaDB e a stack completa de observabilidade (**Prometheus + Loki + Tempo +
+Grafana**, o "LGTM stack" da Grafana Labs).
+
+Primeiro, copie o template de variáveis de ambiente e gere um segredo de JWT
+próprio (o `.env` nunca é commitado — ver `.gitignore`):
+
+```bash
+cp .env.example .env
+# edite o .env e troque JWT_SECRET por um valor aleatório, por exemplo:
+openssl rand -base64 48
+```
 
 ```bash
 docker compose up --build -d
@@ -462,10 +476,17 @@ Em `/postman`:
   meio-termo: curto o suficiente para limitar o estrago de um token vazado,
   longo o suficiente para não forçar login repetido durante o uso normal do
   sistema num desafio técnico (sem fluxo de refresh token, que ficou fora do
-  escopo). O segredo de assinatura vem de `app.security.jwt-secret`
-  (default de desenvolvimento no `application.yml`, sobrescrevível pela
-  variável de ambiente `JWT_SECRET` — nunca deve ser o mesmo valor em
-  produção).
+  escopo). O segredo de assinatura vem de `app.security.jwt-secret`, lido da
+  variável de ambiente `JWT_SECRET` **sem default** no profile principal
+  (`application.yml`) — a aplicação falha na subida se não for definido, em
+  vez de usar silenciosamente um valor fraco/conhecido. O valor real é
+  injetado via `.env` (gitignored, ver `.env.example`) no Docker Compose;
+  rodando fora do Docker, o profile `local` (`application-local.yml`) tem um
+  valor de conveniência só para essa situação, isolado do valor usado em
+  Docker/produção. Um valor antigo desse segredo chegou a ficar hardcoded
+  como default nesses arquivos em commits anteriores do histórico — foi
+  removido, mas por estar em histórico público de um repositório Git, deve
+  ser tratado como comprometido (nunca reaproveitado como segredo real).
 - **`JwtAuthenticationFilter` + `JwtAuthenticationEntryPoint`**: um
   `OncePerRequestFilter` valida o header `Authorization: Bearer <token>`,
   carrega o `Usuario` correspondente e o define como principal no

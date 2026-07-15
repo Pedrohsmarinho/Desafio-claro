@@ -2,6 +2,18 @@ spring:
   application:
     name: pedidos-api
 
+  mvc:
+    # Sem isso, uma rota inexistente (ex: GET /api/rota-que-nao-existe) cai no
+    # tratador padrao de recurso estatico do Spring (Whitelabel Error Page em
+    # HTML) em vez de lancar NoHandlerFoundException, que e o que o
+    # GlobalExceptionHandler precisa capturar para devolver o mesmo formato
+    # JSON de erro usado no resto da API.
+    throw-exception-if-no-handler-found: true
+
+  web:
+    resources:
+      add-mappings: false
+
   datasource:
     # valores default apontam para o MariaDB local do desafio; sobrescritos por
     # variaveis de ambiente ao rodar via Docker Compose (ver docker-compose.yml)

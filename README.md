@@ -504,6 +504,8 @@ Em `/postman`:
   204 na exclusão bem-sucedida), `PedidoBuscaControllerTest` (filtro por
   status, busca por nome case-insensitive, combinação dos dois, paginação,
   ordenação, isolamento entre usuários no endpoint `/api/pedidos/busca`),
+  `DashboardControllerTest` (contagem por status escopada ao usuário
+  autenticado em `/api/dashboard/metricas`, isolamento entre usuários),
   `AuthControllerTest` (login/registro: sucesso, 401, 400 de validação,
   409 de email duplicado — via HTTP, não só a nível de serviço),
   `PedidoValidacaoControllerTest` (validação de `POST /api/pedidos`: nome
@@ -511,7 +513,7 @@ Em `/postman`:
   inexistente retornando 404 no formato padronizado) e
   `PedidoControllerErroInesperadoTest` (uma exceção genérica não mapeada
   cai no handler catch-all e retorna 500 sem vazar stacktrace/detalhe
-  interno para o cliente). 65 testes no total.
+  interno para o cliente). 69 testes no total.
 
 ### Cobertura de código (JaCoCo) e testes de cenários de erro
 
@@ -682,6 +684,29 @@ qualquer 401) e as mensagens de erro em `LoginComponent`/
   peso total, itens totais): complementam os gráficos com números diretos,
   sem precisar interpretar um gráfico para responder "quantos pedidos eu
   tenho mesmo".
+- **Gráficos do dashboard (barras "por status" e pizza "vs. limite")
+  consomem `GET /api/dashboard/metricas`, não recontam a lista de pedidos
+  no navegador**: antes, os dois gráficos eram calculados client-side
+  (`Array.filter`/`reduce` sobre `pedidos$`) — a mesma lógica de contagem
+  duplicada em dois lugares (dashboard e, potencialmente, qualquer outro
+  lugar que precisasse do mesmo número). Agora existe uma única query
+  autoritativa no backend (`PedidoService.buscarMetricasDashboard`,
+  escopada por `usuarioId`), e o frontend só exibe o que ela retorna.
+  **Decisão deliberada de não ler direto do `MeterRegistry` do
+  Micrometer** (que alimenta `/actuator/prometheus` e o Grafana): as
+  métricas de negócio (`pedidos_total`, `pedidos_by_status`) são
+  **globais** (somam todos os usuários) e, no caso de `pedidos_total`,
+  **cumulativas** (um `Counter` que nunca decresce com exclusões) — nenhuma
+  das duas coisas é o que o card/gráfico do usuário logado precisa mostrar
+  ("quantos pedidos eu tenho *agora*"). Taguear essas métricas por usuário
+  para reaproveitá-las aqui também foi descartado: cardinalidade por
+  usuário num Gauge/Counter do Prometheus é um anti-pattern conhecido
+  (cresce sem limite conforme a base de usuários cresce). Por isso, o
+  Grafana continua respondendo "qual a saúde/uso agregado do sistema" com
+  as métricas globais de sempre, e `/api/dashboard/metricas` responde
+  "quantos pedidos esse usuário tem agora, por status" com uma consulta
+  direta ao banco escopada por usuário — perguntas diferentes, por
+  design, cada uma com a fonte de dados certa para o que ela responde.
 - **Estados vazio/carregando/API indisponível tratados explicitamente**: a
   listagem e o dashboard mostram um spinner enquanto carregam, uma
   ilustração + CTA ("Cadastrar o primeiro pedido") quando não há nenhum
@@ -745,23 +770,26 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 65 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 69 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
   `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`,
-  `AuthControllerTest`, `PedidoValidacaoControllerTest` e
-  `PedidoControllerErroInesperadoTest` — contexto Spring completo, sem
-  mocks, exceto o service mockado no teste de 500) rodando contra H2,
-  com cobertura JaCoCo em 99.4% de linhas.
-- Frontend: `ng build` (dev e produção) sem erros; 65 testes Jasmine/Karma
+  `DashboardControllerTest`, `AuthControllerTest`,
+  `PedidoValidacaoControllerTest` e `PedidoControllerErroInesperadoTest` —
+  contexto Spring completo, sem mocks, exceto o service mockado no teste
+  de 500) rodando contra H2, com cobertura JaCoCo em 99.4% de linhas.
+- Frontend: `ng build` (dev e produção) sem erros; 69 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o
   `AuthService` (sessão em `sessionStorage`, expiração de token), o
+  `DashboardService` (consumo de `/api/dashboard/metricas`), o
   `HealthService` (up/down/polling), o filtro/busca/paginação/ordenação da
   listagem via `/api/pedidos/busca` (incluindo o debounce de 300ms na
-  busca), a validação e o fluxo de login/cadastro do `LoginComponent`, os
-  cards de resumo/gráficos/polling do `DashboardComponent`, e a validação
-  e o limite de 5 pedidos no `PedidoFormComponent`.
+  busca e a regressão de paginação/tamanho de página corrigida com dados
+  mockados), a validação e o fluxo de login/cadastro do `LoginComponent`,
+  os cards de resumo e os gráficos do `DashboardComponent` (agora via
+  `/api/dashboard/metricas`), e a validação e o limite de 5 pedidos no
+  `PedidoFormComponent`.
 - Verificado que o `ng serve` já em execução recompilou automaticamente
   (watch mode) e está servindo o bundle atualizado (strings como
   `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).

@@ -500,10 +500,85 @@ Em `/postman`:
   incorreto), `PedidoControllerSecurityTest` (contexto Spring completo +
   filtro de segurança real, sem mocks: `/api/pedidos` retorna 401 sem
   token/com token inválido/com token expirado, 422 em transição inválida
-  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário)
-  e `PedidoBuscaControllerTest` (filtro por status, busca por nome
-  case-insensitive, combinação dos dois, paginação, ordenação, isolamento
-  entre usuários no endpoint `/api/pedidos/busca`). 44 testes no total.
+  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário,
+  204 na exclusão bem-sucedida), `PedidoBuscaControllerTest` (filtro por
+  status, busca por nome case-insensitive, combinação dos dois, paginação,
+  ordenação, isolamento entre usuários no endpoint `/api/pedidos/busca`),
+  `AuthControllerTest` (login/registro: sucesso, 401, 400 de validação,
+  409 de email duplicado — via HTTP, não só a nível de serviço),
+  `PedidoValidacaoControllerTest` (validação de `POST /api/pedidos`: nome
+  vazio/curto, peso/itens ausentes/negativos/não numéricos, e rota
+  inexistente retornando 404 no formato padronizado) e
+  `PedidoControllerErroInesperadoTest` (uma exceção genérica não mapeada
+  cai no handler catch-all e retorna 500 sem vazar stacktrace/detalhe
+  interno para o cliente). 65 testes no total.
+
+### Cobertura de código (JaCoCo) e testes de cenários de erro
+
+Configurado `jacoco-maven-plugin` no `pom.xml` (`prepare-agent` antes dos
+testes, `report` gerado em `target/site/jacoco/index.html` logo depois,
+na fase `test`). **Sem `jacoco:check`/threshold mínimo por enquanto** —
+decisão deliberada de olhar o número real antes de definir uma meta, em
+vez de travar o build num percentual arbitrário. Exclusões do relatório
+(não da execução dos testes — todo o código real roda normalmente):
+classe `*Application` (main, sem lógica), `SecurityConfig`/`OpenApiConfig`
+(configuração pura, sem branches), `dto/**` (records simples) e
+`service/exception/**` (exceções triviais, só guardam uma mensagem).
+
+**Antes** (44 testes, cobrindo majoritariamente o caminho feliz +
+algumas regras de negócio): **92.8% linhas / 90.6% instruções / 85.0%
+branches**. Maior gap: `GlobalExceptionHandler` em 43% — a maioria dos
+handlers de exceção nunca era exercitada via HTTP de verdade.
+
+**Depois** (65 testes, com os cenários de erro/exception completos
+descritos acima): **99.4% linhas / 99.3% instruções / 85.0% branches**.
+`GlobalExceptionHandler` e `PedidoController` foram de 43%/80% para
+100%. A cobertura de branches não mudou porque os poucos branches
+restantes (`DataSeeder`, um `if` de "já semeado ou não") não fazem parte
+do escopo de cenários de erro da API.
+
+**Dois gaps reais de tratamento de erro foram encontrados e corrigidos
+no código (não só ajustados no teste) ao escrever esses testes**:
+
+1. **Rota inexistente retornava 500, não 404**: `GET /api/rota-que-nao-existe`
+   caía no handler catch-all genérico em vez de um 404 com o formato
+   padronizado. A causa: no Spring Framework 6.1+/Boot 3.2+, uma rota sem
+   handler lança `NoResourceFoundException` (não o mais antigo
+   `NoHandlerFoundException`, que era o que eu tinha mapeado
+   inicialmente) — descoberto empiricamente ao rodar o teste, não
+   assumido. Corrigido adicionando um `@ExceptionHandler(NoResourceFoundException.class)`
+   dedicado, além de configurar
+   `spring.mvc.throw-exception-if-no-handler-found: true` e
+   `spring.web.resources.add-mappings: false` (sem isso, a rota
+   inexistente nem chegava a lançar uma exceção capturável — caía direto
+   no tratamento padrão de recurso estático do Spring, com uma
+   Whitelabel Error Page em HTML).
+2. **Corpo de requisição malformado (ex: `"peso": "abc"` em vez de um
+   número) retornava 500, não 400**: um JSON com tipo errado num campo
+   causa `HttpMessageNotReadableException` durante a desserialização,
+   **antes** da Bean Validation rodar — uma exceção diferente de
+   `MethodArgumentNotValidException`, sem handler dedicado, caindo no
+   catch-all genérico (500) em vez de um 400 (erro do cliente, não do
+   servidor). Corrigido com um `@ExceptionHandler(HttpMessageNotReadableException.class)`
+   dedicado.
+
+Formato de erro já padronizado desde o início do projeto (`ErrorResponse`:
+`timestamp`, `status`, `error`, `message`, `path`), usado por **todos**
+os handlers de exceção sem exceção — os testes de erro não precisaram
+de um formato novo.
+
+### Testes de erro/exception no frontend
+
+Além dos cenários já descritos nas seções de testes por componente
+acima, os testes que simulam especificamente respostas de erro do
+backend (via `HttpTestingController`, sem precisar do backend rodando):
+login com 401 (`AuthService` propaga o erro e não grava token nenhum),
+`PedidoService.alterarStatus`/`excluir` com 422/404 vindos da API real
+(não do fallback local), e o tratamento desses mesmos erros na tela de
+listagem (mensagem de erro via snackbar, tela continua funcional, sem
+exceção não tratada). O `authInterceptor` (limpa sessão e redireciona em
+qualquer 401) e as mensagens de erro em `LoginComponent`/
+`PedidoFormComponent` já tinham cobertura de sessões anteriores.
 
 ## Decisões técnicas — Frontend
 
@@ -670,11 +745,14 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 44 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 65 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
-  `PedidoControllerSecurityTest` e `PedidoBuscaControllerTest` — contexto
-  Spring completo, sem mocks) rodando contra H2.
-- Frontend: `ng build` (dev e produção) sem erros; 60 testes Jasmine/Karma
+  `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`,
+  `AuthControllerTest`, `PedidoValidacaoControllerTest` e
+  `PedidoControllerErroInesperadoTest` — contexto Spring completo, sem
+  mocks, exceto o service mockado no teste de 500) rodando contra H2,
+  com cobertura JaCoCo em 99.4% de linhas.
+- Frontend: `ng build` (dev e produção) sem erros; 65 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o

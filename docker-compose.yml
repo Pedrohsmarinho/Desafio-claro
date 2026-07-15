@@ -1,26 +1,48 @@
 services:
+  mariadb:
+    image: mariadb:11
+    # 3307 (nao 3306) no host: evita conflito com um MariaDB local que
+    # porventura ja esteja escutando em 127.0.0.1:3306. Entre containers
+    # (backend, etc.) o acesso continua via o nome de servico "mariadb"
+    # na porta padrao 3306 - essa publicacao e so para clientes do host
+    # (DBeaver, mysql CLI, etc.), nao usada pela aplicacao.
+    ports:
+      - "3307:3306"
+    environment:
+      MARIADB_DATABASE: pedidos_db
+      MARIADB_USER: pedidos_user
+      MARIADB_PASSWORD: pedidos_pass
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-troque_esta_senha_root}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
-    # network_mode: host (Linux) porque, por decisao do usuario, o MariaDB
-    # deste desafio roda localmente (fora do Compose), escutando so em
-    # 127.0.0.1:3306. Bridge networking + host.docker.internal nao
-    # alcancaria um servico bindado apenas em loopback; host networking
-    # deixa o container enxergar "localhost" exatamente como o host ve.
-    # Pelo mesmo motivo, prometheus/loki/promtail/tempo/grafana tambem usam
-    # host networking (todos precisam se enxergar por "localhost").
-    # Trade-off: so funciona em Docker no Linux (nao Docker Desktop
-    # Mac/Windows) - ver README para a alternativa de containerizar o
-    # MariaDB tambem.
-    network_mode: host
+    ports:
+      - "8080:8080"
     environment:
-      DB_URL: ${DB_URL:-jdbc:mariadb://localhost:3306/pedidos_db}
+      # nomes de servico do compose (rede bridge padrao, com DNS interno) no
+      # lugar de "localhost" - unico motivo pelo qual esta stack antes exigia
+      # network_mode: host era o MariaDB rodar fora do Compose, bindado em
+      # 127.0.0.1; agora que o banco tambem esta containerizado, a rede
+      # bridge padrao resolve os nomes de servico entre si sem problema.
+      DB_URL: ${DB_URL:-jdbc:mariadb://mariadb:3306/pedidos_db}
       DB_USERNAME: ${DB_USERNAME:-pedidos_user}
       DB_PASSWORD: ${DB_PASSWORD:-pedidos_pass}
       JWT_SECRET: ${JWT_SECRET:-WrFvuOmUSYFfbnSRaWDnhGJtws-JPFFuiBf2CcJUZZM917LeTkX-5nqRqoPA3ecE}
-      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://localhost:4318/v1/traces}
+      OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://tempo:4318/v1/traces}
     depends_on:
-      - tempo
+      mariadb:
+        condition: service_healthy
+      tempo:
+        condition: service_started
     restart: unless-stopped
 
   frontend:
@@ -34,7 +56,8 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    network_mode: host
+    ports:
+      - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     depends_on:
@@ -43,7 +66,8 @@ services:
 
   loki:
     image: grafana/loki:latest
-    network_mode: host
+    ports:
+      - "3100:3100"
     volumes:
       - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
       - loki-data:/loki
@@ -51,7 +75,6 @@ services:
 
   promtail:
     image: grafana/promtail:latest
-    network_mode: host
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
       # Socket do Docker (somente leitura): usado pelo Promtail para descobrir
@@ -63,7 +86,8 @@ services:
 
   tempo:
     image: grafana/tempo:latest
-    network_mode: host
+    ports:
+      - "3200:3200"
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./monitoring/tempo.yaml:/etc/tempo.yaml
@@ -72,7 +96,8 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    network_mode: host
+    ports:
+      - "3000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -89,6 +114,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  mariadb-data:
   grafana-data:
   loki-data:
   tempo-data:

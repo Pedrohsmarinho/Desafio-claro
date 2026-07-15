@@ -5,7 +5,7 @@ datasources:
     uid: tempo
     type: tempo
     access: proxy
-    url: http://localhost:3200
+    url: http://tempo:3200
     editable: true
     jsonData:
       # Trace -> Logs: ao abrir um trace no Tempo, "View logs" busca no Loki

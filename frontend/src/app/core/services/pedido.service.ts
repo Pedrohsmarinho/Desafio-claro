@@ -1,9 +1,11 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, catchError, map, of, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  FiltroPedidos,
   LIMITE_MAXIMO_PEDIDOS,
+  PaginaPedidos,
   Pedido,
   PedidoCreateRequest,
   StatusPedido,
@@ -35,6 +37,28 @@ export class PedidoService {
 
   carregar(): void {
     this.buscarTodos().subscribe((pedidos) => this.pedidosSubject.next(pedidos));
+  }
+
+  /**
+   * Filtro (status/nome), paginacao e ordenacao resolvidos no backend
+   * (GET /api/pedidos/busca) - usado pela listagem, que dispara uma nova
+   * requisicao a cada mudanca de filtro/pagina/coluna ordenada, em vez de
+   * carregar tudo uma vez e filtrar no navegador (como pedidos$/buscarTodos
+   * ainda fazem, para o dashboard e a checagem de limite no cadastro).
+   */
+  buscarPagina(filtro: FiltroPedidos): Observable<PaginaPedidos> {
+    let params = new HttpParams().set('page', filtro.page).set('size', filtro.size);
+    if (filtro.status) {
+      params = params.set('status', filtro.status);
+    }
+    if (filtro.busca) {
+      params = params.set('busca', filtro.busca);
+    }
+    if (filtro.sort) {
+      params = params.set('sort', filtro.sort);
+    }
+
+    return this.http.get<PaginaPedidos>(`${this.apiUrl}/busca`, { params });
   }
 
   buscarTodos(): Observable<Pedido[]> {

@@ -1,7 +1,7 @@
 <div class="header">
   <div>
     <h1 class="titulo-pagina">Pedidos</h1>
-    <p class="subtitulo-pagina">{{ pedidos.length }} de {{ limiteMaximo }} pedidos utilizados</p>
+    <p class="subtitulo-pagina">{{ totalPedidosUsuario }} de {{ limiteMaximo }} pedidos utilizados</p>
   </div>
   <button
     mat-raised-button
@@ -23,14 +23,14 @@
   </div>
 }
 
-@if (!carregando && pedidos.length > 0) {
+@if (totalPedidosUsuario > 0) {
   <div class="filtros">
     <mat-form-field appearance="outline" class="campo-busca">
       <mat-label>Buscar por cliente</mat-label>
       <input
         matInput
         [(ngModel)]="termoBusca"
-        (ngModelChange)="aplicarFiltros()"
+        (ngModelChange)="onBuscaChange()"
         placeholder="Ex: João Silva"
       />
       <mat-icon matSuffix>search</mat-icon>
@@ -38,7 +38,7 @@
 
     <mat-form-field appearance="outline" class="campo-filtro-status">
       <mat-label>Status</mat-label>
-      <mat-select [(ngModel)]="filtroStatus" (ngModelChange)="aplicarFiltros()">
+      <mat-select [(ngModel)]="filtroStatus" (ngModelChange)="onFiltroStatusChange()">
         @for (status of opcoesFiltroStatus; track status) {
           <mat-option [value]="status">{{ rotuloFiltroStatus(status) }}</mat-option>
         }
@@ -52,7 +52,7 @@
     <mat-icon class="girando">progress_activity</mat-icon>
     Carregando pedidos...
   </div>
-} @else if (pedidos.length === 0) {
+} @else if (totalPedidosUsuario === 0) {
   <div class="estado-vazio">
     <mat-icon>inbox</mat-icon>
     <p>Você ainda não tem nenhum pedido cadastrado.</p>
@@ -62,7 +62,7 @@
     </button>
   </div>
 } @else {
-  <table mat-table [dataSource]="dataSource" matSort class="tabela-pedidos">
+  <table mat-table [dataSource]="pedidos" matSort (matSortChange)="onSortChange($event)" class="tabela-pedidos">
     <ng-container matColumnDef="cliente">
       <th mat-header-cell *matHeaderCellDef mat-sort-header>Cliente</th>
       <td mat-cell *matCellDef="let pedido">{{ pedido.displayName }}</td>
@@ -129,8 +129,10 @@
   </table>
 
   <mat-paginator
-    [pageSizeOptions]="[5, 10, 25]"
-    [pageSize]="5"
+    [length]="totalElements"
+    [pageSizeOptions]="pageSizeOptions"
+    [pageSize]="pageSizeOptions[0]"
+    (page)="onPageChange($event)"
     showFirstLastButtons
     aria-label="Selecionar página de pedidos"
   ></mat-paginator>

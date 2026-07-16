@@ -97,15 +97,20 @@ atualizado automaticamente pelo Hibernate (`ddl-auto: update`) na primeira
 subida, e o seed inicial é aplicado pelo `DataSeeder` somente se a tabela
 estiver vazia.
 
-Usuário de login de demonstração (criado automaticamente pelo `DataSeeder`
-na primeira subida, junto com os 3 pedidos do seed):
+Um usuário de demonstração é populado automaticamente pelo `DataSeeder` na
+primeira subida (junto com os 3 pedidos do seed) — as credenciais estão no
+próprio código-fonte
+(`backend/src/main/java/com/claro/desafio/pedidos/config/DataSeeder.java`),
+não reproduzidas aqui de propósito (este é um repositório público).
 
-- email: `admin@pedidos.com`
-- senha: `admin123`
-
-Também é possível criar novos usuários via `POST /api/auth/registrar` (ver
-[Contrato da API](#contrato-da-api)) — cada usuário só enxerga e manipula os
-próprios pedidos.
+O fluxo normal, porém, é criar sua própria conta: acesse
+`http://localhost:4200`, use o seletor **"Criar conta"** na tela de login
+(nome, email, senha — mínimo 8 caracteres) e você já é autenticado
+automaticamente após o cadastro. Cada usuário só enxerga e manipula os
+próprios pedidos. O mesmo endpoint por trás desse fluxo
+(`POST /api/auth/registrar`) também pode ser chamado diretamente (ver
+[Contrato da API](#contrato-da-api)), se preferir testar via curl/Postman
+em vez da tela.
 
 ### Frontend
 
@@ -453,10 +458,12 @@ Em `/postman`:
   login não emitia token de verdade (`token: null`, documentado como algo a
   implementar depois). Isso foi substituído por um modelo real: entidade
   `Usuario` (nome, email único, senha com hash BCrypt) persistida no banco,
-  cadastro via `POST /api/auth/registrar`, e `POST /api/auth/login`
-  retornando um JWT de verdade. O `DataSeeder` continua criando o usuário
-  de demonstração (`admin@pedidos.com`/`admin123`) na primeira subida, para
-  não quebrar os fluxos e a documentação já existentes.
+  cadastro via `POST /api/auth/registrar` (ou pela tela de login, seletor
+  "Criar conta"), e `POST /api/auth/login` retornando um JWT de verdade. O
+  `DataSeeder` continua criando um usuário de demonstração na primeira
+  subida (credenciais no próprio `DataSeeder.java`, não repetidas aqui —
+  repositório público), para não quebrar os fluxos e a documentação já
+  existentes.
 - **Regra de senha: mínimo 8 caracteres**: sem exigir a combinação
   "maiúscula+número+símbolo" comum em formulários corporativos, que na
   prática empurra os usuários a padrões previsíveis (`Senha123!`) e não
@@ -534,7 +541,10 @@ Em `/postman`:
   inexistente retornando 404 no formato padronizado) e
   `PedidoControllerErroInesperadoTest` (uma exceção genérica não mapeada
   cai no handler catch-all e retorna 500 sem vazar stacktrace/detalhe
-  interno para o cliente). 69 testes no total.
+  interno para o cliente) e `GlobalExceptionHandlerTest` (o handler
+  isolado, sem contexto Spring/MockMvc — cada exceção customizada e a
+  genérica forçadas manualmente, conferindo status HTTP e corpo JSON
+  diretamente). 79 testes no total.
 
 ### Cobertura de código (JaCoCo) e testes de cenários de erro
 
@@ -559,6 +569,20 @@ descritos acima): **99.4% linhas / 99.3% instruções / 85.0% branches**.
 100%. A cobertura de branches não mudou porque os poucos branches
 restantes (`DataSeeder`, um `if` de "já semeado ou não") não fazem parte
 do escopo de cenários de erro da API.
+
+**Após a refatoração de camadas (Domain/Entidade/DTO, MapStruct,
+`DataSeeder` movido para `PedidoService` e restrito a `@Profile("!test")`
+— ver histórico do repositório)**: `GlobalExceptionHandlerTest` foi
+adicionado — testes unitários que instanciam o handler diretamente (sem
+`@SpringBootTest`/`MockMvc`), forçando cada exceção customizada e a
+genérica (`RuntimeException`/`NullPointerException` não mapeada)
+manualmente, complementando os testes de integração via controller já
+existentes. `GlobalExceptionHandler` permanece em **100% de linhas**. A
+cobertura **total do projeto caiu de 99.4% para ~89.4%** nessa mesma
+medição — não é uma regressão dos testes, é `DataSeeder` aparecendo com
+0% (consequência esperada de ter sido excluído da execução em testes via
+`@Profile("!test")`; antes disso ele rodava, ainda que sem asserções
+próprias, durante o `@SpringBootTest` de cada teste de controller).
 
 **Dois gaps reais de tratamento de erro foram encontrados e corrigidos
 no código (não só ajustados no teste) ao escrever esses testes**:
@@ -860,13 +884,16 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 69 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 79 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
   `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`,
   `DashboardControllerTest`, `AuthControllerTest`,
-  `PedidoValidacaoControllerTest` e `PedidoControllerErroInesperadoTest` —
+  `PedidoValidacaoControllerTest`, `PedidoControllerErroInesperadoTest` —
   contexto Spring completo, sem mocks, exceto o service mockado no teste
-  de 500) rodando contra H2, com cobertura JaCoCo em 99.4% de linhas.
+  de 500 — e `GlobalExceptionHandlerTest`, unitário e isolado do contexto
+  Spring) rodando contra H2, com cobertura JaCoCo em 100% de linhas no
+  `GlobalExceptionHandler` (ver seção dedicada acima para o número total
+  do projeto e por que ele varia).
 - Frontend: `ng build` (dev e produção) sem erros; 69 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +

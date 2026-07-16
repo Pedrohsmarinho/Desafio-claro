@@ -23,6 +23,7 @@ import {
   podeTransicionar,
 } from '../../../core/models/pedido.model';
 import { PedidoService } from '../../../core/services/pedido.service';
+import { extrairMensagemErro } from '../../../core/utils/http-error.util';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 
 type FiltroStatus = StatusPedido | 'TODOS';
@@ -63,7 +64,8 @@ export class PedidoListComponent implements OnInit, OnDestroy {
 
   readonly displayedColumns = ['cliente', 'itens', 'peso', 'status', 'acoes'];
   readonly statusLabels = STATUS_LABELS;
-  readonly limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
+  /** Valor inicial seguro; atualizado para o real (app.pedidos.limite-maximo) assim que PedidoService o carrega. */
+  limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   readonly StatusPedido = StatusPedido;
   readonly opcoesFiltroStatus: FiltroStatus[] = ['TODOS', ...Object.values(StatusPedido)];
   readonly pageSizeOptions = [5, 10, 25];
@@ -111,6 +113,9 @@ export class PedidoListComponent implements OnInit, OnDestroy {
     );
     this.subscriptions.add(
       this.pedidoService.apiDisponivel$.subscribe((disponivel) => (this.apiIndisponivel = !disponivel)),
+    );
+    this.subscriptions.add(
+      this.pedidoService.limiteMaximo$.subscribe((limite) => (this.limiteMaximo = limite)),
     );
 
     this.pedidoService.carregar();
@@ -169,7 +174,7 @@ export class PedidoListComponent implements OnInit, OnDestroy {
         this.notificar(`Pedido "${pedido.displayName}" atualizado para ${this.statusLabels[novoStatus]}`);
         this.buscar();
       },
-      error: (err) => this.notificar(this.extrairMensagemErro(err), true),
+      error: (err) => this.notificar(extrairMensagemErro(err, 'Ocorreu um erro inesperado'), true),
     });
   }
 
@@ -190,7 +195,7 @@ export class PedidoListComponent implements OnInit, OnDestroy {
           this.notificar(`Pedido "${pedido.displayName}" excluído com sucesso`);
           this.buscar();
         },
-        error: (err) => this.notificar(this.extrairMensagemErro(err), true),
+        error: (err) => this.notificar(extrairMensagemErro(err, 'Ocorreu um erro inesperado'), true),
       });
     });
   }
@@ -220,7 +225,7 @@ export class PedidoListComponent implements OnInit, OnDestroy {
           this.carregando = false;
           this.pedidos = [];
           this.totalElements = 0;
-          this.notificar(this.extrairMensagemErro(err), true);
+          this.notificar(extrairMensagemErro(err, 'Ocorreu um erro inesperado'), true);
         },
       });
   }
@@ -230,10 +235,5 @@ export class PedidoListComponent implements OnInit, OnDestroy {
       duration: 4000,
       panelClass: erro ? 'snackbar-erro' : 'snackbar-sucesso',
     });
-  }
-
-  private extrairMensagemErro(err: unknown): string {
-    const httpError = err as { error?: { message?: string }; message?: string };
-    return httpError?.error?.message ?? httpError?.message ?? 'Ocorreu um erro inesperado';
   }
 }

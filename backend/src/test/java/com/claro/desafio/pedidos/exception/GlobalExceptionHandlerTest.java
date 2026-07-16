@@ -17,6 +17,7 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -139,6 +140,18 @@ class GlobalExceptionHandlerTest {
         assertThat(resposta.getBody().message()).isEqualTo("Corpo da requisicao invalido ou mal formatado");
         // a mensagem tecnica original do Jackson (com nome de classe interna) nao deve vazar
         assertThat(resposta.getBody().message()).doesNotContain("JSON parse error").doesNotContain("java.lang.Long");
+    }
+
+    @Test
+    void handleTipoInvalidoRetorna400ParaPathVariableComTipoIncompativel() {
+        MethodParameter methodParameter = mock(MethodParameter.class);
+        var ex = new MethodArgumentTypeMismatchException("abc", Long.class, "id", methodParameter, new NumberFormatException());
+
+        ResponseEntity<ErrorResponse> resposta = handler.handleTipoInvalido(ex, requestFake("GET", "/api/pedidos/abc"));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(resposta.getBody().status()).isEqualTo(400);
+        assertThat(resposta.getBody().message()).contains("id");
     }
 
     @Test

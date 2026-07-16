@@ -43,11 +43,15 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    // PedidoService dispara um GET /api/pedidos no proprio construtor, e o
-    // ngOnInit do componente chama carregar() de novo (para totalPedidosUsuario)
-    // + buscar() (para a tabela, via /api/pedidos/busca) - por isso ha varias
-    // requisicoes pendentes nesse ponto.
+    // PedidoService dispara um GET /api/pedidos no proprio construtor (e busca
+    // o limite maximo real via GET /api/dashboard/metricas), e o ngOnInit do
+    // componente chama carregar() de novo (para totalPedidosUsuario) + buscar()
+    // (para a tabela, via /api/pedidos/busca) - por isso ha varias requisicoes
+    // pendentes nesse ponto.
     httpMock.match(`${environment.apiUrl}/pedidos`).forEach((req) => req.flush(pedidos));
+    httpMock.match(`${environment.apiUrl}/dashboard/metricas`).forEach((req) =>
+      req.flush({ totalPedidos: pedidos.length, porStatus: {}, limiteMaximo: 5 }),
+    );
     httpMock.expectOne((req) => req.url === buscaUrl).flush(paginaCompleta);
     fixture.detectChanges();
   });

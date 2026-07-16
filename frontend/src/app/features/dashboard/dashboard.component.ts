@@ -41,6 +41,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private subscription?: Subscription;
   private pollingSubscription?: Subscription;
 
+  /** Valor inicial seguro; atualizado para o real (app.pedidos.limite-maximo) assim que a primeira resposta de metricas chegar. */
   limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   totalPedidos = 0;
   totalEmProcessamento = 0;
@@ -113,6 +114,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private atualizarGraficos(metricas: DashboardMetricas): void {
+    this.limiteMaximo = metricas.limiteMaximo;
     const contagem = STATUS_ORDENADOS.map((status) => metricas.porStatus[status] ?? 0);
 
     this.barChartData = {

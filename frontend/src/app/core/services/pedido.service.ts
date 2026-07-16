@@ -11,6 +11,7 @@ import {
   StatusPedido,
   podeTransicionar,
 } from '../models/pedido.model';
+import { DashboardService } from './dashboard.service';
 
 const FALLBACK_KEY = 'pedidos_fallback_local';
 
@@ -31,8 +32,22 @@ export class PedidoService {
   private readonly apiDisponivelSubject = new BehaviorSubject<boolean>(true);
   readonly apiDisponivel$ = this.apiDisponivelSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  /**
+   * LIMITE_MAXIMO_PEDIDOS e usado so como valor inicial seguro, ate a
+   * primeira resposta de GET /api/dashboard/metricas chegar - dali em diante,
+   * este e o valor real configurado no backend (app.pedidos.limite-maximo),
+   * usado tanto para a checagem de limite no fallback offline (criar())
+   * quanto para o texto exibido nas telas (via limiteMaximo$).
+   */
+  private readonly limiteMaximoSubject = new BehaviorSubject<number>(LIMITE_MAXIMO_PEDIDOS);
+  readonly limiteMaximo$ = this.limiteMaximoSubject.asObservable();
+
+  constructor(
+    private http: HttpClient,
+    private dashboardService: DashboardService,
+  ) {
     this.carregar();
+    this.dashboardService.buscarMetricas().subscribe((metricas) => this.limiteMaximoSubject.next(metricas.limiteMaximo));
   }
 
   carregar(): void {
@@ -86,9 +101,10 @@ export class PedidoService {
         }
 
         const totalConhecido = this.pedidosSubject.value.length;
-        if (totalConhecido >= LIMITE_MAXIMO_PEDIDOS) {
+        const limiteMaximo = this.limiteMaximoSubject.value;
+        if (totalConhecido >= limiteMaximo) {
           return throwError(() => new Error(
-            `Limite maximo de ${LIMITE_MAXIMO_PEDIDOS} pedidos cadastrados foi atingido`,
+            `Limite maximo de ${limiteMaximo} pedidos cadastrados foi atingido`,
           ));
         }
 

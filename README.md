@@ -452,7 +452,20 @@ Em `/postman`:
   `TransicaoInvalidaException`, `PedidoNaoEncontradoException`,
   `CredenciaisInvalidasException`) + `@RestControllerAdvice` centralizando o
   mapeamento para os códigos HTTP exigidos (400/401/404/422), evitando
-  `try/catch` espalhado pelos controllers.
+  `try/catch` espalhado pelos controllers. Cobre também exceções de
+  parsing/binding do próprio Spring que não são de negócio, mas que sem
+  handler dedicado cairiam no catch-all genérico e virariam 500 em vez do
+  4xx correto: `MethodArgumentTypeMismatchException` (path variable/query
+  param com tipo incompatível, ex. `DELETE /api/pedidos/abc` → 400) e
+  `HttpRequestMethodNotSupportedException` (verbo HTTP sem handler para
+  aquele path, ex. `GET /api/pedidos/abc` → 405, já que só existe
+  `DELETE`/`PATCH /api/pedidos/{id}`). **Convenção estabelecida**: qualquer
+  ponto que precise montar um corpo de erro usa `ErrorResponse.of(HttpStatus,
+  mensagem, path)` (deriva `status`/`error` do próprio `HttpStatus`) — usado
+  tanto pelo `GlobalExceptionHandler` quanto pelo `JwtAuthenticationEntryPoint`
+  (que roda no filtro de segurança, antes do dispatch do Spring MVC, por isso
+  não passa pelo primeiro), evitando duplicar a montagem do corpo de erro em
+  mais de um lugar.
 - **Evolução para multiusuário + JWT completo**: a versão inicial do
   desafio tinha um único usuário hardcoded (`app.security.admin-email`) e o
   login não emitia token de verdade (`token: null`, documentado como algo a
@@ -544,7 +557,7 @@ Em `/postman`:
   interno para o cliente) e `GlobalExceptionHandlerTest` (o handler
   isolado, sem contexto Spring/MockMvc — cada exceção customizada e a
   genérica forçadas manualmente, conferindo status HTTP e corpo JSON
-  diretamente). 79 testes no total.
+  diretamente). 83 testes no total.
 
 ### Cobertura de código (JaCoCo) e testes de cenários de erro
 
@@ -870,6 +883,40 @@ invisível a um `grep` do código-fonte. A dependência foi restaurada; fica
 registrado como lição: para pacotes do próprio ecossistema Angular/CLI,
 "sem import direto" não é garantia de "não utilizado".
 
+### Revisão de qualidade (code review) — convenções estabelecidas
+
+Passada de revisão focada em manutenibilidade (não funcionalidade nova),
+seguindo as categorias padrão de code review (duplicação, nomenclatura,
+complexidade, tratamento de erro, testes). Corrigido o que era mecânico e
+sem risco; itens subjetivos (estilo/densidade) foram confirmados antes de
+alterar. Duas convenções novas ficam registradas para uso daqui pra frente:
+
+- **`extrairMensagemErro(err, mensagemPadrao)`** (`core/utils/http-error.util.ts`):
+  utilitário único para extrair a mensagem de um erro HTTP (`error.message`
+  do backend, com fallback pro `message` técnico do próprio Angular, e por
+  fim um texto padrão) — usado por `LoginComponent`, `PedidoFormComponent` e
+  `PedidoListComponent`, que antes reimplementavam a mesma lógica cada um a
+  seu jeito (pequenas divergências entre si). Qualquer tela nova que precise
+  exibir erro de uma chamada HTTP deve usar esse utilitário, não reescrever
+  a extração na mão.
+- **`PedidoService.limiteMaximo$`**: fonte única do limite máximo de pedidos
+  no frontend, populada a partir de `GET /api/dashboard/metricas` (o valor
+  real configurado no backend, `app.pedidos.limite-maximo`) assim que a
+  primeira resposta chega — `LIMITE_MAXIMO_PEDIDOS` (constante estática) vira
+  só o valor inicial seguro antes disso. Antes da correção, três telas
+  (dashboard, listagem, cadastro) exibiam o valor estático diretamente; se o
+  backend mudasse o limite configurado, o texto ficaria desatualizado
+  enquanto o gráfico do dashboard (que já lia da API) mostraria o valor
+  certo. Qualquer tela que precise do limite deve se inscrever em
+  `pedidoService.limiteMaximo$`, não importar a constante diretamente para
+  exibição.
+
+Achado também corrigido nesta revisão (não era conhecido antes): `GET
+/api/pedidos/{id-não-numérico}` e variantes (`DELETE`/`PATCH`) retornavam
+500 em vez de 400/405 — ver handlers de `MethodArgumentTypeMismatchException`
+e `HttpRequestMethodNotSupportedException` na seção de decisões técnicas do
+backend.
+
 ## Validação realizada
 
 O ambiente de execução usado para construir este projeto não tinha acesso a
@@ -884,7 +931,7 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 79 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 83 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
   `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`,
   `DashboardControllerTest`, `AuthControllerTest`,
@@ -894,7 +941,7 @@ visualmente:
   Spring) rodando contra H2, com cobertura JaCoCo em 100% de linhas no
   `GlobalExceptionHandler` (ver seção dedicada acima para o número total
   do projeto e por que ele varia).
-- Frontend: `ng build` (dev e produção) sem erros; 69 testes Jasmine/Karma
+- Frontend: `ng build` (dev e produção) sem erros; 71 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o

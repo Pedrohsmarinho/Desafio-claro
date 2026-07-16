@@ -31,6 +31,10 @@ describe('PedidoFormComponent', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
     flushCargaInicial([]);
+    // PedidoService busca o limite maximo real (GET /api/dashboard/metricas) no construtor
+    httpMock.match(`${environment.apiUrl}/dashboard/metricas`).forEach((req) =>
+      req.flush({ totalPedidos: 0, porStatus: {}, limiteMaximo: 5 }),
+    );
     fixture.detectChanges();
   });
 

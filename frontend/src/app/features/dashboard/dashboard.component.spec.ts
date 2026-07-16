@@ -44,11 +44,13 @@ describe('DashboardComponent', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    // PedidoService dispara um GET no proprio construtor, e o ngOnInit do
-    // componente reage a esse mesmo Observable compartilhado (cards) e
-    // dispara GET /api/dashboard/metricas separadamente (graficos).
+    // PedidoService dispara um GET no proprio construtor (pedidos, e tambem
+    // metricas, pra saber o limite maximo real), e o ngOnInit do componente
+    // reage ao Observable compartilhado de pedidos (cards) e dispara seu
+    // proprio GET /api/dashboard/metricas separadamente (graficos) - por isso
+    // ha duas requisicoes pendentes pra metricasUrl nesse ponto.
     httpMock.match(`${environment.apiUrl}/pedidos`).forEach((req) => req.flush(pedidos));
-    httpMock.expectOne(metricasUrl).flush(metricas);
+    httpMock.match(metricasUrl).forEach((req) => req.flush(metricas));
     fixture.detectChanges();
   });
 

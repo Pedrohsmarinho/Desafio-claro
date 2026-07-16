@@ -12,7 +12,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -64,7 +67,7 @@ class PedidoValidacaoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("displayName", "Ana", "itens", 1, "peso", 500))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("displayName")));
+                .andExpect(jsonPath("$.message").value(containsString("displayName")));
     }
 
     @Test
@@ -122,5 +125,38 @@ class PedidoValidacaoControllerTest {
                 .andExpect(jsonPath("$.error").exists())
                 .andExpect(jsonPath("$.message").exists())
                 .andExpect(jsonPath("$.path").exists());
+    }
+
+    @Test
+    void idComTipoInvalidoAoExcluirRetorna400NaoQuebraCom500() throws Exception {
+        // DELETE /api/pedidos/{id} espera um Long - "abc" dispara
+        // MethodArgumentTypeMismatchException, que sem handler dedicado cai
+        // no catch-all generico (500) em vez do 400 esperado
+        mockMvc.perform(delete("/api/pedidos/abc").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message", containsString("id")));
+    }
+
+    @Test
+    void idComTipoInvalidoAoAlterarStatusRetorna400NaoQuebraCom500() throws Exception {
+        mockMvc.perform(patch("/api/pedidos/abc/status")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "PAUSADO"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message", containsString("id")));
+    }
+
+    @Test
+    void metodoHttpNaoSuportadoParaOPathRetorna405NaoQuebraCom500() throws Exception {
+        // "/api/pedidos/abc" casa com o padrao de path de DELETE/PATCH
+        // /api/pedidos/{id}, mas nao ha nenhum GET /api/pedidos/{id} - o Spring
+        // lanca HttpRequestMethodNotSupportedException, que sem handler
+        // dedicado cai no catch-all generico (500) em vez do 405 esperado
+        mockMvc.perform(get("/api/pedidos/abc").header("Authorization", "Bearer " + token))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.status").value(405));
     }
 }

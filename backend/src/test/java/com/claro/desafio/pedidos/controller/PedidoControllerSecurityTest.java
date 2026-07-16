@@ -13,7 +13,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -63,10 +65,18 @@ class PedidoControllerSecurityTest {
 
     @Test
     void tokenValidoDeveRetornar200EListarApenasPedidosDoProprioUsuario() throws Exception {
-        String token = registrarNovoUsuarioERetornarToken();
+        String tokenUsuario1 = registrarNovoUsuarioERetornarToken();
+        criarPedido(tokenUsuario1, "Pedido do usuario 1");
 
-        mockMvc.perform(get("/api/pedidos").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
+        String tokenUsuario2 = registrarNovoUsuarioERetornarToken();
+        criarPedido(tokenUsuario2, "Pedido do usuario 2 - A");
+        criarPedido(tokenUsuario2, "Pedido do usuario 2 - B");
+
+        mockMvc.perform(get("/api/pedidos").header("Authorization", "Bearer " + tokenUsuario2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[*].displayName", containsInAnyOrder(
+                        "Pedido do usuario 2 - A", "Pedido do usuario 2 - B")));
     }
 
     @Test

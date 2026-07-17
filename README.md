@@ -15,22 +15,6 @@ diferencial.
 docker-compose.yml
 CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 ```
-
-> **Nota sobre o banco de dados**: o enunciado original do desafio pede H2 em
-> memória ("suficiente para o escopo do desafio"). A pedido do candidato,
-> o projeto foi migrado para **MariaDB** como banco principal (mantendo H2
-> apenas para os testes JUnit, que seguem rápidos e isolados). Veja a seção
-> [Decisões técnicas — Backend](#decisões-técnicas--backend) para detalhes.
-
-## Status do projeto
-
-Entregue: obrigatórios e diferenciais do enunciado completos (backend
-multiusuário com JWT, frontend completo, observabilidade full stack LGTM),
-mais uma revisão de qualidade/manutenibilidade sobre o resultado final. Os
-detalhes de cada decisão estão nas seções de "Decisões técnicas" abaixo; o
-que ficou fora do escopo está em
-["O que eu faria diferente com mais tempo"](#o-que-eu-faria-diferente-com-mais-tempo).
-
 ## Como executar (local, sem Docker)
 
 ### Backend
@@ -47,7 +31,7 @@ FLUSH PRIVILEGES;
 ```
 
 Rode com o profile `local` (usa `application-local.yml`: MariaDB em
-`localhost:3306` e um segredo de JWT de desenvolvimento, só para essa
+`localhost:3306` e um secret de JWT de desenvolvimento, só para essa
 situação — nunca usado no Docker Compose):
 
 ```bash
@@ -92,12 +76,12 @@ A aplicação sobe em `http://localhost:4200` e consome a API em
 
 ## Como executar (via Docker Compose)
 
-Sem pré-requisitos externos além de criar o arquivo de segredos locais: um
+Sem pré-requisitos externos além de criar o arquivo de secrets locais: um
 único comando sobe **tudo**, incluindo o banco de dados — backend, frontend,
 MariaDB e a stack completa de observabilidade (**Prometheus + Loki + Tempo +
 Grafana**, o "LGTM stack" da Grafana Labs).
 
-Primeiro, copie o template de variáveis de ambiente e gere um segredo de JWT
+Primeiro, copie o template de variáveis de ambiente e gere um secret de JWT
 próprio (o `.env` nunca é commitado — ver `.gitignore`):
 
 ```bash
@@ -403,7 +387,7 @@ Em `/postman`:
   o range exigido pelo desafio (>= 3.5.0 no momento da geração do projeto
   via Spring Initializr).
 - **MariaDB como banco principal, H2 apenas em testes**: o enunciado original
-  aceitava H2 em memória, mas o candidato pediu persistência real em MariaDB.
+  aceitava H2 em memória, mas optei pela persistência real em MariaDB.
   A troca ficou restrita à camada de configuração/driver — `pom.xml` passou a
   trazer `mariadb-java-client` no `runtime` (H2 permanece, mas com escopo
   `test`), e `application.yml` aponta para
@@ -463,21 +447,21 @@ Em `/postman`:
 - **JWT via `io.jsonwebtoken` (jjwt), assinatura HS256, expiração de 1
   hora**: o token carrega apenas `sub` (email do usuário) e `exp` — nenhum
   dado mutável (nome, senha) entra no payload, então o token não fica
-  desatualizado se esses dados mudarem depois. 1 hora foi escolhido como
-  meio-termo: curto o suficiente para limitar o estrago de um token vazado,
-  longo o suficiente para não forçar login repetido durante o uso normal do
+  desatualizado se esses dados mudarem depois. 1 hora foi escolhida como
+  meio-termo: curta o suficiente para limitar o estrago de um token vazado,
+  longa o suficiente para não forçar login repetido durante o uso normal do
   sistema num desafio técnico (sem fluxo de refresh token, que ficou fora do
-  escopo). O segredo de assinatura vem de `app.security.jwt-secret`, lido da
+  escopo). O secret de assinatura vem de `app.security.jwt-secret`, lido da
   variável de ambiente `JWT_SECRET` **sem default** no profile principal
   (`application.yml`) — a aplicação falha na subida se não for definido, em
   vez de usar silenciosamente um valor fraco/conhecido. O valor real é
   injetado via `.env` (gitignored, ver `.env.example`) no Docker Compose;
   rodando fora do Docker, o profile `local` (`application-local.yml`) tem um
   valor de conveniência só para essa situação, isolado do valor usado em
-  Docker/produção. Um valor antigo desse segredo chegou a ficar hardcoded
+  Docker/produção. Um valor antigo desse secret chegou a ficar hardcoded
   como default nesses arquivos em commits anteriores do histórico — foi
   removido, mas por estar em histórico público de um repositório Git, deve
-  ser tratado como comprometido (nunca reaproveitado como segredo real).
+  ser tratado como comprometido (nunca reaproveitado como secret real).
 - **`JwtAuthenticationFilter` + `JwtAuthenticationEntryPoint`**: um
   `OncePerRequestFilter` valida o header `Authorization: Bearer <token>`,
   carrega o `Usuario` correspondente e o define como principal no
@@ -508,7 +492,7 @@ Em `/postman`:
   entre usuários — pedido de um não aparece/edita para o outro — transições
   válidas/inválidas, pedido inexistente), `AuthServiceTest` (registro,
   email duplicado, login com credenciais corretas/incorretas),
-  `JwtServiceTest` (geração/validação de token, expiração, segredo
+  `JwtServiceTest` (geração/validação de token, expiração, secret
   incorreto), `PedidoControllerSecurityTest` (contexto Spring completo +
   filtro de segurança real, sem mocks: `/api/pedidos` retorna 401 sem
   token/com token inválido/com token expirado, 422 em transição inválida
@@ -563,7 +547,7 @@ genérica (`RuntimeException`/`NullPointerException` não mapeada)
 manualmente, complementando os testes de integração via controller já
 existentes. `GlobalExceptionHandler` permanece em **100% de linhas**. A
 cobertura **total do projeto caiu de 99.4% para ~89.4%** nessa mesma
-medição — não é uma regressão dos testes, é `DataSeeder` aparecendo com
+medição — não é uma regressão dos testes, é o `DataSeeder` aparecendo com
 0% (consequência esperada de ter sido excluído da execução em testes via
 `@Profile("!test")`; antes disso ele rodava, ainda que sem asserções
 próprias, durante o `@SpringBootTest` de cada teste de controller).
@@ -949,7 +933,7 @@ logado (deve redirecionar para `/login`).
   ótimo candidato a `@Cacheable` (Spring Cache + Caffeine, TTL curto) em vez
   de bater no banco a cada request. `GET /api/dashboard/metricas` também é
   chamado em polling pelo frontend a cada 20s; um cache server-side de
-  poucos segundos reduziria consultas redundantes se o mesmo usuário tiver
+  poucos segundos reduziria consultas redundantes se o mesmo usuário tivesse
   múltiplas abas abertas. Nenhum dos dois foi feito agora porque o volume de
   dados/requisições do desafio não justifica a complexidade adicional (cache
   a invalidar, dependência nova) — mas seriam os primeiros pontos a otimizar
@@ -983,3 +967,4 @@ logado (deve redirecionar para `/login`).
   realizada"), mas não foram salvos como imagens versionadas no
   repositório/README — incluí-los deixaria a documentação mais concreta
   para quem for avaliar sem rodar o projeto localmente.
+</document_content>

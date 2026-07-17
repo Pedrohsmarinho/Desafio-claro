@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b1e2c3d4-1111-4a2b-9c3d-pedidosapi001",
     "name": "Pedidos API - Desafio Tecnico Claro",
-    "description": "Colecao da API de gestao de pedidos de e-commerce, multi-tenant com autenticacao JWT. Os requests de Login e Registrar tem um script de teste que salva automaticamente o token retornado na variavel de colecao {{token}}; os requests de Pedidos ja usam Authorization: Bearer {{token}}. Cada request tem exemplos salvos (sucesso e erro) que podem ser usados para gerar um Mock Server no Postman (botao direito na colecao > Mock Collection). O baseUrl (http://localhost:8080) funciona tanto rodando o backend localmente (./mvnw spring-boot:run, apos ./create-db-user.sh na raiz do repo) quanto via 'docker compose up' - a porta publicada e a mesma nos dois casos.",
+    "description": "Colecao da API de gestao de pedidos de e-commerce, multi-tenant com autenticacao JWT. Os requests de Login e Registrar tem um script de teste que salva automaticamente o token retornado na variavel de colecao {{token}}; os requests de Pedidos ja usam Authorization: Bearer {{token}}. Cada request tem exemplos salvos (sucesso e erro) que podem ser usados para gerar um Mock Server no Postman (botao direito na colecao > Mock Collection). O baseUrl (http://localhost:8080) funciona tanto rodando o backend localmente (./mvnw spring-boot:run -Dspring-boot.run.profiles=local) quanto via 'docker compose up' - a porta publicada e a mesma nos dois casos. {{demoEmail}}/{{demoSenha}} sao as credenciais do usuario semeado por DataSeeder; troque pelas suas se preferir.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -19,6 +19,16 @@
     {
       "key": "pedidoId",
       "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "demoEmail",
+      "value": "admin@pedidos.com",
+      "type": "string"
+    },
+    {
+      "key": "demoSenha",
+      "value": "admin123",
       "type": "string"
     }
   ],
@@ -48,14 +58,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@pedidos.com\",\n  \"senha\": \"admin123\"\n}"
+              "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"senha\": \"{{demoSenha}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
               "host": ["{{baseUrl}}"],
               "path": ["api", "auth", "login"]
             },
-            "description": "Credenciais de demonstracao (seed): admin@pedidos.com / admin123. Salva o token retornado em {{token}} automaticamente."
+            "description": "Credenciais de demonstracao (seed): {{demoEmail}} / {{demoSenha}}. Salva o token retornado em {{token}} automaticamente."
           },
           "response": [
             {
@@ -65,7 +75,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"admin@pedidos.com\",\n  \"senha\": \"admin123\"\n}"
+                  "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"senha\": \"{{demoSenha}}\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/auth/login",
@@ -78,7 +88,7 @@
               "_postman_previewlanguage": "json",
               "header": [{ "key": "Content-Type", "value": "application/json" }],
               "cookie": [],
-              "body": "{\n  \"email\": \"admin@pedidos.com\",\n  \"token\": \"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbkBwZWRpZG9zLmNvbSIsImlhdCI6MTc4NDAzOTAyMSwiZXhwIjoxNzg0MDQyNjIxfQ.8sTZcgDqzezC4K8nb3bnM7G_--HDixULnXm-L82dkLhx2Y8CfEZamzPQ3FYPWnLHskmDEKojGJ6zTDReIF1Cug\"\n}"
+              "body": "{\n  \"email\": \"{{demoEmail}}\",\n  \"token\": \"eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJhZG1pbkBwZWRpZG9zLmNvbSIsImlhdCI6MTc4NDAzOTAyMSwiZXhwIjoxNzg0MDQyNjIxfQ.8sTZcgDqzezC4K8nb3bnM7G_--HDixULnXm-L82dkLhx2Y8CfEZamzPQ3FYPWnLHskmDEKojGJ6zTDReIF1Cug\"\n}"
             }
           ]
         },
@@ -91,7 +101,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@pedidos.com\",\n  \"senha\": \"errada\"\n}"
+              "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"senha\": \"errada\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
@@ -107,7 +117,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"admin@pedidos.com\",\n  \"senha\": \"errada\"\n}"
+                  "raw": "{\n  \"email\": \"{{demoEmail}}\",\n  \"senha\": \"errada\"\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/api/auth/login",

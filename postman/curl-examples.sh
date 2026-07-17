@@ -3,23 +3,28 @@
 # Espelha os requests/exemplos da collection Pedidos-API.postman_collection.json
 #
 # Uso: BASE_URL=http://localhost:8080 ./curl-examples.sh
+# Os exemplos de pedidos (ids 1/3/5, status) dependem do usuario e do seed
+# criados por DataSeeder na primeira subida - DEMO_EMAIL/DEMO_SENHA abaixo
+# tem que bater com o que estiver configurado la (ou passe os seus via env).
 
 set -e
 BASE_URL="${BASE_URL:-http://localhost:8080}"
+DEMO_EMAIL="${DEMO_EMAIL:-admin@pedidos.com}"
+DEMO_SENHA="${DEMO_SENHA:-admin123}"
 
 echo "== Autenticacao =="
 
 echo "-- Login - sucesso (usuario de demonstracao do seed) --"
 LOGIN_RESP=$(curl -sS -X POST "$BASE_URL/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@pedidos.com","senha":"admin123"}')
+  -d "{\"email\":\"$DEMO_EMAIL\",\"senha\":\"$DEMO_SENHA\"}")
 echo "$LOGIN_RESP"
 TOKEN=$(echo "$LOGIN_RESP" | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])")
 
 echo "-- Login - senha invalida (401) --"
 curl -sS -w '\nHTTP:%{http_code}\n' -X POST "$BASE_URL/api/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@pedidos.com","senha":"errada"}'
+  -d "{\"email\":\"$DEMO_EMAIL\",\"senha\":\"errada\"}"
 
 echo "-- Registrar - sucesso, ja retorna token (201) --"
 curl -sS -w '\nHTTP:%{http_code}\n' -X POST "$BASE_URL/api/auth/registrar" \

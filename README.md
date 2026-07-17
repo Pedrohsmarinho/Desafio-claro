@@ -29,7 +29,8 @@ docker compose up --build -d
 
 Um único comando sobe tudo: backend, frontend, MariaDB e a stack completa de
 observabilidade (Prometheus + Loki + Tempo + Grafana, o "LGTM stack"). O
-backend só inicia depois que o MariaDB reporta saudável (`service_healthy`).
+backend só inicia depois que o MariaDB reporta saudável (`service_healthy`),
+e o Flyway aplica as migrations automaticamente na primeira subida.
 
 Para começar do zero (apaga também os volumes de dados):
 ```bash
@@ -45,6 +46,12 @@ docker compose down -v && docker compose up --build -d
 | Grafana | http://localhost:3000 (usuário `admin`, senha `admin`) |
 | MariaDB | `localhost:3307` (usuário `pedidos_user`, senha `pedidos_pass`, banco `pedidos_db`) |
 
+**Versões fixas**: todas as imagens do `docker-compose.yml` usam tag exata
+(sem `latest`), para garantir reprodutibilidade — MariaDB 11.8.8, Prometheus
+v3.13.1, Loki 3.7.3, Tempo 3.0.0, Grafana 13.1.0. JDK/Node/Nginx (usados só
+no build) mantêm o pin em major.minor, recebendo patches de segurança
+automaticamente.
+
 Um dashboard **"Pedidos API - Visão Geral e Saúde"** já vem provisionado no
 Grafana, reunindo cards de negócio, saúde da API (`up`), métricas técnicas
 (requisições/s, latência, erros 4xx/5xx) e um painel de logs em tempo real.
@@ -53,8 +60,8 @@ Tempo (logs ↔ traces nos dois sentidos).
 
 ### Local, sem Docker
 
-Backend: requer um MariaDB em `localhost:3306` (schema/usuário no README
-completo ou no `docker-compose.yml`).
+Backend: requer um MariaDB em `localhost:3306` (schema/usuário no
+`docker-compose.yml`; o schema em si é criado pelo Flyway na subida).
 ```bash
 cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
@@ -67,8 +74,8 @@ npm start
 ```
 
 A API sobe em `http://localhost:8080`, o frontend em `http://localhost:4200`.
-O schema e o seed inicial (3 pedidos) são criados automaticamente pelo
-`DataSeeder` na primeira subida. O fluxo normal é criar sua própria conta em
+O seed inicial (3 pedidos) é criado automaticamente pelo `DataSeeder` na
+primeira subida. O fluxo normal é criar sua própria conta em
 `http://localhost:4200` (seletor "Criar conta" — nome, email, senha mínima
 de 8 caracteres), com login automático após o cadastro.
 
@@ -140,6 +147,15 @@ Prometheus já estar rodando.
 - **Java 17 / Spring Boot 3.5**, **MariaDB** como banco principal (H2 só em
   testes) — o enunciado aceitava H2 em memória, mas foi pedida persistência
   real.
+- **Migrations com Flyway** (em vez de `ddl-auto: update`): o Hibernate
+  passou a só validar (`ddl-auto: validate`) se as entidades batem com as
+  tabelas reais; quem cria/altera o schema agora é a migration versionada
+  `V1__criar_tabelas.sql`, auditável e com checksum travado
+  (`flyway_schema_history`). O seed de exemplo continua no `DataSeeder`
+  (não virou migration), porque passa pelas mesmas regras de negócio do
+  `PedidoService` (limite por usuário, transições válidas) — algo que SQL
+  puro não replicaria sem duplicar essa lógica. Nos testes (H2), o Flyway
+  fica desligado e o Hibernate volta a gerar o schema direto das entidades.
 - **Regra de transição de status no enum** `StatusPedido`, não no service —
   mantém a regra de negócio junto ao domínio.
 - **Exceções de negócio dedicadas** + `@RestControllerAdvice` centralizando
@@ -151,7 +167,7 @@ Prometheus já estar rodando.
 - **Senha**: mínimo de 8 caracteres (sem exigir maiúscula/número/símbolo),
   combinado com BCrypt.
 - **JWT** (`io.jsonwebtoken`, HS256, expiração de 1h): payload só com `sub`
-  e `exp`. O secret vem de `JWT_SECRET` sem default no profile principal —
+  e `exp`. O segredo vem de `JWT_SECRET` sem default no profile principal —
   a aplicação falha na subida se não for definido.
 - **Autorização por usuário** em todos os métodos de `PedidoService`
   (`usuarioId` explícito, nunca lido do request).
@@ -232,6 +248,10 @@ retornava `500` em vez de `400`/`405`.
 - **Frontend**: `ng build` sem erros; 71 testes Jasmine/Karma.
 - **Visual**: screenshots reais (Chrome headless) em 1440px e 390px,
   usados para validar as correções de responsividade.
+- **Docker/Flyway**: `docker compose down -v` seguido de `docker compose up
+  --build`, confirmando que as imagens fixas sobem normalmente e que o
+  Flyway cria o schema do zero sozinho, sem passo manual — backend saudável
+  (`/actuator/health` → `db: UP`) e seed aplicado normalmente.
 
 **Recomendação**: mesmo assim, antes de considerar o fluxo 100% validado,
 percorra manualmente login/cadastro → dashboard → listagem → cadastro de

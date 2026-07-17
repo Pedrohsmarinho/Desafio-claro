@@ -15,7 +15,6 @@ import { DashboardService } from './dashboard.service';
 
 const FALLBACK_KEY = 'pedidos_fallback_local';
 
-/** Cache compartilhado (pedidos$) + fallback em LocalStorage quando a API esta indisponivel. */
 @Injectable({ providedIn: 'root' })
 export class PedidoService {
   private readonly apiUrl = `${environment.apiUrl}/pedidos`;
@@ -23,11 +22,9 @@ export class PedidoService {
   private readonly pedidosSubject = new BehaviorSubject<Pedido[]>([]);
   readonly pedidos$ = this.pedidosSubject.asObservable();
 
-  /** false quando o ultimo carregamento falhou (API indisponivel) - usado para exibir aviso na listagem/dashboard. */
   private readonly apiDisponivelSubject = new BehaviorSubject<boolean>(true);
   readonly apiDisponivel$ = this.apiDisponivelSubject.asObservable();
 
-  // LIMITE_MAXIMO_PEDIDOS e so o valor inicial ate a primeira resposta de /api/dashboard/metricas chegar
   private readonly limiteMaximoSubject = new BehaviorSubject<number>(LIMITE_MAXIMO_PEDIDOS);
   readonly limiteMaximo$ = this.limiteMaximoSubject.asObservable();
 
@@ -75,7 +72,6 @@ export class PedidoService {
     return this.http.post<Pedido>(this.apiUrl, request).pipe(
       tap(() => this.carregar()),
       catchError((error: HttpErrorResponse) => {
-        // status 0 = falha de rede; outros status sao respostas reais da API e devem ser propagados
         if (error.status !== 0) {
           return throwError(() => error);
         }

@@ -28,7 +28,6 @@ import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-d
 
 type FiltroStatus = StatusPedido | 'TODOS';
 
-// mapeia o id da coluna ordenavel (mat-sort-header) para o nome do campo no backend
 const CAMPO_ORDENACAO_BACKEND: Record<string, string> = {
   cliente: 'displayName',
   itens: 'itens',
@@ -73,7 +72,6 @@ export class PedidoListComponent implements OnInit, OnDestroy {
   totalElements = 0;
   carregando = true;
 
-  // total sem filtro (via pedidos$) - usado pro limite real, nao o total ja filtrado pela busca
   totalPedidosUsuario = 0;
   apiIndisponivel = false;
 

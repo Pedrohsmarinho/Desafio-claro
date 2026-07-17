@@ -18,14 +18,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Testes de ponta a ponta (contexto Spring completo + filtro de seguranca
- * real, nao mockado) confirmando que /api/pedidos exige um JWT valido em
- * todas as operacoes, e que as regras de negocio (limite, transicao,
- * autorizacao entre usuarios) respondem com os codigos HTTP corretos quando
- * acionadas atraves da API de verdade - complementando os testes unitarios
- * de PedidoServiceTest, que cobrem a mesma logica isolada do HTTP.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class PedidoControllerSecurityTest {
@@ -84,7 +76,6 @@ class PedidoControllerSecurityTest {
         String token = registrarNovoUsuarioERetornarToken();
         long pedidoId = criarPedido(token, "Cliente Teste");
 
-        // EM_PROCESSAMENTO so pode ir para PAUSADO ou CANCELADO, nunca direto para CANCELADO -> PAUSADO de novo
         mockMvc.perform(patch("/api/pedidos/{id}/status", pedidoId)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)

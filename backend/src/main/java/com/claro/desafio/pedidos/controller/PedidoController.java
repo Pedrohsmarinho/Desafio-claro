@@ -25,7 +25,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/** Dono dos pedidos vem sempre do principal autenticado (JWT), nunca de parametro da requisicao. */
 @RestController
 @RequestMapping("/api/pedidos")
 @RequiredArgsConstructor

@@ -1,6 +1,3 @@
-# Build multi-stage: a imagem final serve os arquivos estaticos via Nginx,
-# sem precisar de Node.js na imagem publicada.
-
 FROM node:20-alpine AS build
 WORKDIR /app
 

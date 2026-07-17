@@ -8,7 +8,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/** Gauges (nao Counters): refletem o estado atual a cada scrape, sem incrementar/decrementar manualmente. */
 @Component
 @RequiredArgsConstructor
 public class PedidoMetrics {
@@ -29,7 +28,6 @@ public class PedidoMetrics {
                 .description("Soma do peso (em gramas) de todos os pedidos cadastrados")
                 .register(meterRegistry);
 
-        // sem sufixo "_total": Prometheus remove esse sufixo de Gauges de qualquer forma
         Gauge.builder("pedidos_itens", pedidoRepository, PedidoRepository::somaItens)
                 .description("Soma da quantidade de itens de todos os pedidos cadastrados")
                 .register(meterRegistry);

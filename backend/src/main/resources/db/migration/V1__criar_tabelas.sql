@@ -1,8 +1,3 @@
--- Schema inicial, equivalente ao que o Hibernate (ddl-auto: update) vinha
--- criando automaticamente a partir das entidades Usuario/Pedido. A partir
--- desta migration, quem manda no schema é o Flyway; o Hibernate só valida
--- (ddl-auto: validate).
-
 CREATE TABLE usuarios (
     id         BIGINT       NOT NULL AUTO_INCREMENT,
     nome       VARCHAR(255) NOT NULL,

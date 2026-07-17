@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/** Peso recebido em gramas; a conversao kg -> g e feita no frontend antes do envio. */
 public record PedidoRequest(
 
         @NotBlank(message = "Nome do cliente e obrigatorio")

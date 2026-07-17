@@ -8,8 +8,6 @@ datasources:
     url: http://loki:3100
     editable: true
     jsonData:
-      # Qualquer log com "traceId=<hex>" vira um link clicavel pro trace
-      # correspondente no Tempo - e a correlacao log -> trace no Grafana.
       derivedFields:
         - datasourceUid: tempo
           matcherRegex: 'traceId=([0-9a-f]+)'

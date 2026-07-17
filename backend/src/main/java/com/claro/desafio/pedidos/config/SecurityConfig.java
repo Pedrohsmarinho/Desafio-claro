@@ -18,7 +18,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/** /api/auth/**, /actuator/** e o Swagger ficam publicos; o resto exige JWT valido. */
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {

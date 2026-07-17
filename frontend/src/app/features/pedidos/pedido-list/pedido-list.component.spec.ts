@@ -43,11 +43,6 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    // PedidoService dispara um GET /api/pedidos no proprio construtor (e busca
-    // o limite maximo real via GET /api/dashboard/metricas), e o ngOnInit do
-    // componente chama carregar() de novo (para totalPedidosUsuario) + buscar()
-    // (para a tabela, via /api/pedidos/busca) - por isso ha varias requisicoes
-    // pendentes nesse ponto.
     httpMock.match(`${environment.apiUrl}/pedidos`).forEach((req) => req.flush(pedidos));
     httpMock.match(`${environment.apiUrl}/dashboard/metricas`).forEach((req) =>
       req.flush({ totalPedidos: pedidos.length, porStatus: {}, limiteMaximo: 5 }),
@@ -119,11 +114,6 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
   });
 
   it('mantém o tamanho de página escolhido pelo usuário (não reseta para o valor padrão)', () => {
-    // regressao: [pageSize] no template estava fixo em "pageSizeOptions[0]"
-    // (uma expressao estatica, sempre 5) em vez de vinculado ao campo real do
-    // componente - qualquer mudanca de pagina/filtro reescrevia o tamanho de
-    // pagina do paginador de volta para 5, mesmo que o usuario tivesse
-    // escolhido 10 ou 25.
     component.onPageChange({ pageIndex: 0, pageSize: 25, length: 50 });
 
     const req = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('size') === '25');
@@ -131,7 +121,6 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
 
     expect(component.pageSize).toBe(25);
 
-    // uma pagina seguinte com o MESMO tamanho de pagina (nao deve voltar a 5)
     component.onPageChange({ pageIndex: 1, pageSize: 25, length: 50 });
     const req2 = httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '1');
     expect(req2.request.params.get('size')).toBe('25');
@@ -152,9 +141,6 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
   });
 
   it('permite voltar para a página anterior corretamente', () => {
-    // regressao: [pageIndex] nao estava vinculado no template, entao o
-    // MatPaginator gerenciava seu proprio indice interno, dessincronizado
-    // do indice real usado nas requisicoes - "voltar pagina" nao funcionava.
     component.onPageChange({ pageIndex: 2, pageSize: 10, length: 50 });
     httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('page') === '2')
       .flush({ ...paginaCompleta, size: 10, totalElements: 50, number: 2 });
@@ -183,8 +169,6 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
     httpMock.expectOne((r) => r.url === buscaUrl && r.params.get('status') === 'CANCELADO')
       .flush({ ...paginaCompleta, content: [pedidos[2]], totalElements: 1 });
 
-    // mesmo com a busca filtrada retornando so 1 resultado, o total real do
-    // usuario (3) e o que decide se o botao "Adicionar" fica desabilitado
     expect(component.totalPedidosUsuario).toBe(3);
     expect(component.podeAtingirLimite()).toBeFalse();
   });
@@ -201,8 +185,6 @@ describe('PedidoListComponent - listagem via API (filtro/paginação/ordenação
 
     expect(openSpy).toHaveBeenCalled();
     expect(openSpy.calls.mostRecent().args[0]).toContain('Pedido nao encontrado');
-    // a tela continua funcional - nao ha excecao nao tratada, o componente
-    // continua respondendo (dado carregado anteriormente nao e descartado)
     expect(component.pedidos.length).toBe(3);
   });
 

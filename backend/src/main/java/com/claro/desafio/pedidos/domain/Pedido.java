@@ -13,7 +13,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Peso sempre em gramas; conversao pra kg fica a cargo do frontend/DTO. */
 @Entity
 @Table(name = "pedidos")
 @Getter
@@ -32,7 +31,6 @@ public class Pedido {
     @Column(nullable = false)
     private Integer itens;
 
-    /** Peso do pedido em gramas. */
     @Column(nullable = false)
     private Long peso;
 
@@ -40,7 +38,6 @@ public class Pedido {
     @Column(nullable = false)
     private StatusPedido status;
 
-    /** Sempre vem do usuario autenticado (JWT), nunca do corpo/query da requisicao. */
     @Column(name = "usuario_id", nullable = false)
     private Long usuarioId;
 }

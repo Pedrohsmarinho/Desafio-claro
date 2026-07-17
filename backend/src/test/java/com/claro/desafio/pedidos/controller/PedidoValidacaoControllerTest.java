@@ -20,10 +20,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Validacao de entrada em POST /api/pedidos (Bean Validation) e rotas
- * inexistentes - contexto Spring completo (MockMvc, sem mocks).
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class PedidoValidacaoControllerTest {
@@ -129,9 +125,6 @@ class PedidoValidacaoControllerTest {
 
     @Test
     void idComTipoInvalidoAoExcluirRetorna400NaoQuebraCom500() throws Exception {
-        // DELETE /api/pedidos/{id} espera um Long - "abc" dispara
-        // MethodArgumentTypeMismatchException, que sem handler dedicado cai
-        // no catch-all generico (500) em vez do 400 esperado
         mockMvc.perform(delete("/api/pedidos/abc").header("Authorization", "Bearer " + token))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
@@ -151,10 +144,6 @@ class PedidoValidacaoControllerTest {
 
     @Test
     void metodoHttpNaoSuportadoParaOPathRetorna405NaoQuebraCom500() throws Exception {
-        // "/api/pedidos/abc" casa com o padrao de path de DELETE/PATCH
-        // /api/pedidos/{id}, mas nao ha nenhum GET /api/pedidos/{id} - o Spring
-        // lanca HttpRequestMethodNotSupportedException, que sem handler
-        // dedicado cai no catch-all generico (500) em vez do 405 esperado
         mockMvc.perform(get("/api/pedidos/abc").header("Authorization", "Bearer " + token))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.status").value(405));

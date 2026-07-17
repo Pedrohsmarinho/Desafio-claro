@@ -6,13 +6,9 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  # "loki" e o nome do servico no docker-compose.yml (rede bridge padrao).
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  # Descoberta dinamica via socket do Docker: acha todos os containers do
-  # compose e faz tail dos logs de cada um automaticamente (sem precisar
-  # listar servico por servico aqui).
   - job_name: docker
     docker_sd_configs:
       - host: unix:///var/run/docker.sock

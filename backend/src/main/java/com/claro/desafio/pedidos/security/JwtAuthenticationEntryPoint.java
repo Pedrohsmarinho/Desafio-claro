@@ -12,11 +12,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-/**
- * Retorna 401 em JSON (mesmo formato do GlobalExceptionHandler) quando uma
- * rota protegida e acessada sem token, com token invalido/expirado, ou com
- * um token cujo usuario nao existe mais.
- */
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

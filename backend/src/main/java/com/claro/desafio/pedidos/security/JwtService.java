@@ -12,12 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Optional;
 
-/**
- * Emissao e validacao de JWT. O token carrega apenas o email do usuario
- * (claim "sub") e a expiracao ("exp") - nenhum dado sensivel ou mutavel
- * (ex: senha, nome) e incluido no payload, que e apenas assinado (nao
- * criptografado) e portanto legivel por quem tiver o token.
- */
+/** Emissao/validacao de JWT. O payload so carrega email e expiracao, nada sensivel. */
 @Service
 public class JwtService {
 

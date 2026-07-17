@@ -13,12 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-/**
- * Retorna a entidade Usuario (via UsuarioAutenticado) para quem chamou - nunca
- * um DTO de resposta. A conversao pra LoginResponse (via UsuarioMapper) e
- * responsabilidade do AuthController, mesmo padrao usado em
- * PedidoController/PedidoService.
- */
+/** Retorna a entidade Usuario, nao o DTO - a conversao pra LoginResponse fica no AuthController. */
 @Service
 @RequiredArgsConstructor
 public class AuthService {

@@ -13,10 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Pedido de e-commerce. O peso e armazenado sempre em gramas; a conversao
- * para quilogramas fica a cargo da camada de apresentacao (DTO/frontend).
- */
+/** Peso sempre em gramas; conversao pra kg fica a cargo do frontend/DTO. */
 @Entity
 @Table(name = "pedidos")
 @Getter
@@ -43,11 +40,7 @@ public class Pedido {
     @Column(nullable = false)
     private StatusPedido status;
 
-    /**
-     * Dono do pedido. Nunca e preenchido a partir de dado vindo do cliente
-     * (corpo/query da requisicao) - sempre a partir do usuario autenticado
-     * extraido do JWT (ver PedidoController/JwtAuthenticationFilter).
-     */
+    /** Sempre vem do usuario autenticado (JWT), nunca do corpo/query da requisicao. */
     @Column(name = "usuario_id", nullable = false)
     private Long usuarioId;
 }

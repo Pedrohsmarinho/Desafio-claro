@@ -8,16 +8,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-/**
- * Todas as metricas aqui sao Gauges (nao Counters) porque representam um
- * estado atual consultado sob demanda a cada scrape (via PedidoRepository),
- * nao um total de eventos que so cresce - uma mudanca de status, exclusao
- * ou criacao deve refletir imediatamente na metrica, sem incrementar/
- * decrementar manualmente a cada operacao do PedidoService. (pedidos_total,
- * por ser cumulativo, e um Counter definido em PedidoService.) Alimentam o
- * dashboard de negocio no Grafana (cards de resumo: total, em
- * processamento, peso total, itens totais).
- */
+/** Gauges (nao Counters): refletem o estado atual a cada scrape, sem incrementar/decrementar manualmente. */
 @Component
 @RequiredArgsConstructor
 public class PedidoMetrics {
@@ -38,10 +29,7 @@ public class PedidoMetrics {
                 .description("Soma do peso (em gramas) de todos os pedidos cadastrados")
                 .register(meterRegistry);
 
-        // nome sem sufixo "_total": o PrometheusNamingConvention remove esse
-        // sufixo de Gauges (reservado para Counters), entao "pedidos_itens_total"
-        // seria exposto como "pedidos_itens" mesmo assim - melhor ja nomear
-        // do jeito que ele efetivamente fica exposto.
+        // sem sufixo "_total": Prometheus remove esse sufixo de Gauges de qualquer forma
         Gauge.builder("pedidos_itens", pedidoRepository, PedidoRepository::somaItens)
                 .description("Soma da quantidade de itens de todos os pedidos cadastrados")
                 .register(meterRegistry);

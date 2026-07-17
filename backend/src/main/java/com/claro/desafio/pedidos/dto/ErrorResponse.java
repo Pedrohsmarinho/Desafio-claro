@@ -15,13 +15,7 @@ public record ErrorResponse(
         return new ErrorResponse(Instant.now(), status, error, message, path);
     }
 
-    /**
-     * Deriva "status" (numero) e "error" (frase padrao, ex: "Not Found") a
-     * partir do proprio HttpStatus - usado por GlobalExceptionHandler e
-     * JwtAuthenticationEntryPoint, os dois pontos que montam um corpo de erro
-     * (o segundo roda no filtro de seguranca, antes do dispatch do Spring MVC,
-     * por isso nao passa pelo primeiro).
-     */
+    // deriva status/error do HttpStatus; usado por GlobalExceptionHandler e JwtAuthenticationEntryPoint
     public static ErrorResponse of(HttpStatus status, String message, String path) {
         return of(status.value(), status.getReasonPhrase(), message, path);
     }

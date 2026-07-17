@@ -32,8 +32,6 @@
   opacity: 0.9;
 
   .ponto {
-    // tamanho fixo de proposito (bolinha decorativa de status, nao deve
-    // escalar com zoom de fonte)
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -57,10 +55,7 @@
   padding: 1.5rem;
 }
 
-// Abaixo desse breakpoint os rotulos de texto da navegacao (Dashboard,
-// Pedidos, API, Sair) somem - so os icones (com tooltip) permanecem -
-// evitando que a toolbar quebre/sobreponha o nome do app em telas estreitas.
-// O texto da marca ("Gestao de Pedidos") tambem encolhe pra abrir espaco.
+// abaixo disso, so icones + tooltip (evita a toolbar quebrar em telas estreitas)
 @media (max-width: 37.5rem) {
   .brand {
     font-size: 0.9rem;

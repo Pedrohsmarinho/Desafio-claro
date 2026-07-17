@@ -15,7 +15,6 @@ import { extrairMensagemErro } from '../../core/utils/http-error.util';
 
 type ModoAcesso = 'login' | 'cadastro';
 
-/** Parametros que diferem entre entrar()/criarConta() - o resto do fluxo (loading, subscribe, navegacao) e identico. */
 interface OpcoesAutenticacao {
   setCarregando: (valor: boolean) => void;
   setErro: (mensagem: string | null) => void;
@@ -99,7 +98,6 @@ export class LoginComponent {
     });
   }
 
-  /** Miolo comum a entrar()/criarConta(): loading -> subscribe -> navega no sucesso ou reporta erro. */
   private autenticar(request$: Observable<LoginResponse>, opcoes: OpcoesAutenticacao): void {
     opcoes.setCarregando(true);
     opcoes.setErro(null);

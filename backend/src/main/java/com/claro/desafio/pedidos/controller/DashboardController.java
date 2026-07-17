@@ -11,13 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Metricas para o dashboard do usuario autenticado (cards/graficos do
- * frontend) - distinto de /actuator/prometheus: aquele expoe metricas
- * globais (todos os usuarios) para o Grafana, este responde "meus pedidos
- * agora", escopado ao dono do token. Ver PedidoService.buscarMetricasDashboard
- * e o README para a justificativa completa da distincao.
- */
+/** Metricas escopadas ao usuario autenticado - distinto das globais em /actuator/prometheus. */
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor

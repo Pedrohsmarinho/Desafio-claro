@@ -1,9 +1,4 @@
-/**
- * Decodifica apenas o payload (claims) de um JWT, sem validar a assinatura -
- * a validacao de verdade e sempre feita pelo backend. Usado no frontend só
- * para checar localmente se o token ja expirou (claim "exp", em segundos
- * desde epoch) e evitar mandar requisicoes com um token obviamente vencido.
- */
+// decodifica so o payload, sem validar assinatura - a validacao de verdade e sempre no backend
 export function decodificarPayloadJwt(token: string): { exp?: number; sub?: string } | null {
   const partes = token.split('.');
   if (partes.length !== 3) {

@@ -38,13 +38,7 @@ export interface FiltroPedidos {
   sort?: string | null; // "campo,direcao", ex: "displayName,asc"
 }
 
-/**
- * Espelha o retorno de GET /api/dashboard/metricas - contagem do usuario
- * autenticado, escopada por usuarioId. Distinto das metricas globais de
- * /actuator/prometheus (pedidos_total, pedidos_by_status), que alimentam
- * o Grafana e respondem uma pergunta diferente (saude/uso agregado do
- * sistema, nao "meus pedidos agora"). Ver DashboardService e o README.
- */
+/** Espelha o retorno de GET /api/dashboard/metricas, escopado ao usuario autenticado. */
 export interface DashboardMetricas {
   totalPedidos: number;
   porStatus: Record<StatusPedido, number>;
@@ -65,11 +59,7 @@ const TRANSICOES_PERMITIDAS: Record<StatusPedido, StatusPedido[]> = {
   [StatusPedido.CANCELADO]: [StatusPedido.EM_PROCESSAMENTO],
 };
 
-/**
- * Espelha a maquina de estados do backend (StatusPedido#podeTransicionarPara)
- * para habilitar/desabilitar acoes na listagem e para validar pedidos criados
- * localmente (fallback offline), sem depender de round-trip com a API.
- */
+// espelha a maquina de estados do backend (StatusPedido#podeTransicionarPara)
 export function podeTransicionar(atual: StatusPedido, novo: StatusPedido): boolean {
   return TRANSICOES_PERMITIDAS[atual].includes(novo);
 }

@@ -7,16 +7,7 @@ import { jwtExpirado } from '../utils/jwt.util';
 
 const STORAGE_KEY = 'pedidos_auth';
 
-/**
- * Token guardado em sessionStorage (nao localStorage): expira junto com a
- * aba/sessao do navegador, reduzindo a janela de exposicao caso o
- * dispositivo seja compartilhado ou comprometido (localStorage persiste
- * indefinidamente entre sessoes). A alternativa mais segura de verdade
- * seria um cookie httpOnly setado pelo backend (inacessivel a JavaScript,
- * portanto imune a XSS) - deixada de fora do escopo deste desafio porque
- * exigiria reconfigurar CORS (credentials) e adicionar protecao CSRF, ja
- * que cookies sao enviados automaticamente pelo navegador.
- */
+// token em sessionStorage (nao localStorage): expira junto com a aba, nao persiste indefinidamente
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly apiUrl = `${environment.apiUrl}/auth`;

@@ -5,10 +5,7 @@ import com.claro.desafio.pedidos.dto.LoginResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-/**
- * so mapeia email (nunca senhaHash) pra LoginResponse - o token nao vem da
- * entidade, e gerado pelo JwtService e passado como segundo parametro.
- */
+/** So mapeia email (nunca senhaHash); token vem do JwtService, nao da entidade. */
 @Mapper(componentModel = "spring")
 public interface UsuarioMapper {
 

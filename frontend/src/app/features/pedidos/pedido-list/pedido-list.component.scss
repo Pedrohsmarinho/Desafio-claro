@@ -21,8 +21,7 @@
   flex: 0 1 13.75rem;
 }
 
-// permite rolagem horizontal so da tabela em telas estreitas, em vez da
-// pagina inteira ficar mais larga que a viewport
+// so a tabela rola horizontalmente no mobile, nao a pagina inteira
 .tabela-wrapper {
   overflow-x: auto;
   border-radius: var(--raio-card) var(--raio-card) 0 0;
@@ -43,15 +42,12 @@
 mat-paginator {
   border-radius: 0 0 var(--raio-card) var(--raio-card);
   box-shadow: var(--sombra-card);
-  // borda fina, mantida em px de proposito (nao deve escalar)
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  // pill sempre totalmente arredondado, independente do tamanho -
-  // mantido em px de proposito
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 700;

@@ -13,7 +13,6 @@ diferencial.
 /monitoring -> configs de Prometheus/Loki/Promtail/Tempo + dashboards/provisioning do Grafana
 /postman    -> collection + environment do Postman e script de curl
 docker-compose.yml
-create-db-user.sh -> cria o banco/usuario do MariaDB (fluxo local, sem Docker)
 CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 ```
 
@@ -25,36 +24,12 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 
 ## Status do projeto
 
-> Em construção. Esta seção é atualizada a cada etapa concluída.
-
-- [x] Backend obrigatório: modelo de domínio, regras de negócio, endpoints,
-      Actuator, logs estruturados, testes manuais (curl) e JUnit.
-- [x] Backend migrado de H2 para MariaDB (persistência real).
-- [x] Frontend obrigatório: login, dashboard, listagem, cadastro.
-- [x] Validação ponta a ponta (via curl simulando o navegador + suites
-      automatizadas; veja nota abaixo sobre o teste visual manual).
-- [x] Swagger/OpenAPI + collection Postman com mocks.
-- [x] Backend multiusuário: cadastro de usuários, JWT completo, pedidos
-      isolados por usuário (autorização), limite de 5 por usuário.
-- [x] Frontend: tela única de login/cadastro com seletor, `AuthService`,
-      route guards e interceptor JWT.
-- [x] Frontend: identidade visual própria (paleta, tipografia, componentes),
-      cards de resumo, badges de status, estados vazio/carregando/erro.
-- [x] Micrometer + Prometheus (`/actuator/prometheus`) e métricas de negócio
-      customizadas (`pedidos_total`, `pedidos_by_status`, `pedidos_peso_total_gramas`,
-      `pedidos_itens`).
-- [x] Frontend: filtro por status + busca por nome, paginação/ordenação da
-      tabela, indicador de saúde da API (`/actuator/health`), polling no
-      dashboard.
-- [x] Docker Compose completo (backend, frontend, **MariaDB**, Prometheus,
-      Loki, Tempo, Grafana) — um único `docker compose up --build`, sem
-      pré-requisito externo — com tracing distribuído, logs centralizados
-      e um único dashboard provisionado automaticamente (negócio, saúde e
-      visão técnica juntos).
-- [x] Commits no Git organizados por Gitflow (`main`/`develop`,
-      Conventional Commits), release `v1.0.0` taggeada, proteção de branch
-      na `main` (PR obrigatório, sem force-push, `enforce_admins`), tudo
-      publicado no GitHub.
+Entregue: obrigatórios e diferenciais do enunciado completos (backend
+multiusuário com JWT, frontend completo, observabilidade full stack LGTM),
+mais uma revisão de qualidade/manutenibilidade sobre o resultado final. Os
+detalhes de cada decisão estão nas seções de "Decisões técnicas" abaixo; o
+que ficou fora do escopo está em
+["O que eu faria diferente com mais tempo"](#o-que-eu-faria-diferente-com-mais-tempo).
 
 ## Como executar (local, sem Docker)
 
@@ -62,15 +37,7 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 
 Pré-requisito: um MariaDB acessível em `localhost:3306` com o schema e
 usuário abaixo (ajuste via variáveis de ambiente `DB_URL`/`DB_USERNAME`/
-`DB_PASSWORD` se preferir outros valores). O script `create-db-user.sh`
-na raiz do repositório automatiza esse setup (requer um cliente
-`mysql`/`mariadb` e acesso admin ao servidor local):
-
-```bash
-./create-db-user.sh
-```
-
-Ou manualmente:
+`DB_PASSWORD` se preferir outros valores):
 
 ```sql
 CREATE DATABASE IF NOT EXISTS pedidos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -405,16 +372,20 @@ Em `/postman`:
 
 - `Pedidos-API.postman_collection.json` — todas as rotas (autenticação,
   registro, listar, criar, alterar status, excluir), organizadas em pastas
-  "Autenticação" e "Pedidos". Os requests de login/registro têm um script
-  de teste que salva automaticamente o token retornado na variável de
-  coleção `{{token}}`; os requests de Pedidos já usam
-  `Authorization: Bearer {{token}}`. Cada request tem **exemplos salvos**
-  (sucesso e os erros 400/401/404/409/422 relevantes), capturados a partir
-  de respostas reais da API. Import: Postman → File → Import → selecione o
-  arquivo.
+  "Autenticação" e "Pedidos". Variáveis de **coleção**: `baseUrl`,
+  `pedidoId`, `token` (vazio até o primeiro login/registro) e
+  `demoEmail`/`demoSenha` (credenciais do usuário semeado por
+  `DataSeeder`, usadas nos exemplos de login — troque pelas suas se
+  preferir). Os requests de login/registro têm um script de teste que
+  salva automaticamente o token retornado em `{{token}}`; os requests de
+  Pedidos já usam `Authorization: Bearer {{token}}`. Cada request tem
+  **exemplos salvos** (sucesso e os erros 400/401/404/409/422 relevantes),
+  capturados a partir de respostas reais da API. Import: Postman → File →
+  Import → selecione o arquivo.
 - `Pedidos-API.postman_environment.json` — variáveis `baseUrl`
-  (`http://localhost:8080`), `token` e `pedidoId`, para não precisar
-  hardcodar a URL em cada request.
+  (`http://localhost:8080`) e `pedidoId`, para não precisar hardcodar a
+  URL em cada request (ambiente opcional; a coleção já funciona sozinha
+  com as variáveis de coleção acima).
 - **Mock Server**: como cada request já tem exemplos salvos, é possível
   clicar com o botão direito na collection importada → "Mock collection" e o
   Postman sobe um servidor que responde com esses exemplos — útil para o
@@ -919,10 +890,10 @@ backend.
 
 ## Validação realizada
 
-O ambiente de execução usado para construir este projeto não tinha acesso a
-um navegador interativo (extensão Chrome não conectada), então a validação
-ponta a ponta foi feita por meios automatizados/equivalentes, não
-visualmente:
+Boa parte da validação ponta a ponta foi feita por meios automatizados
+(testes + `curl`), com uma passada visual real (Chrome headless via
+Playwright, screenshots em desktop e mobile) usada especificamente para a
+revisão de responsividade/UX descrita nas decisões técnicas do frontend:
 
 - Backend: bateria de `curl` cobrindo seed, login (sucesso/falha), registro
   (sucesso com login automático, email duplicado, senha curta), listagem,
@@ -954,13 +925,14 @@ visualmente:
   os cards de resumo e os gráficos do `DashboardComponent` (agora via
   `/api/dashboard/metricas`), e a validação e o limite de 5 pedidos no
   `PedidoFormComponent`.
-- Verificado que o `ng serve` já em execução recompilou automaticamente
-  (watch mode) e está servindo o bundle atualizado (strings como
-  `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).
+- Visual: screenshots reais (Chrome headless) de login, dashboard, listagem
+  e cadastro de pedido em 1440px e 390px de largura, usados pra confirmar a
+  troca de `px` por `rem` e as correções de responsividade (ver "Análise e
+  correções de UX/UI" nas decisões técnicas do frontend).
 
-**Recomendação**: antes de considerar o fluxo 100% validado, abra
-`http://localhost:4200` em um navegador e percorra manualmente
-login/cadastro → dashboard → listagem → cadastro de pedido → mudança de
+**Recomendação**: mesmo assim, antes de considerar o fluxo 100% validado
+por completo, abra `http://localhost:4200` em um navegador e percorra
+manualmente login/cadastro → dashboard → listagem → cadastro de pedido → mudança de
 status → exclusão → logout → tentativa de acessar `/dashboard` sem estar
 logado (deve redirecionar para `/login`).
 
@@ -969,32 +941,45 @@ logado (deve redirecionar para `/login`).
 - **Refresh token**: hoje o JWT expira em 1h e o usuário precisa logar de
   novo — um fluxo de refresh token (com rotação e revogação) evitaria isso
   sem aumentar a janela de exposição de um token de acesso de vida longa.
-- **Cookie `httpOnly` em vez de `sessionStorage`**: a proteção real contra
-  roubo de token via XSS, discutida na seção de decisões técnicas do
-  frontend — ficou fora do escopo por exigir mudanças de CORS/CSRF.
-- **Rate limiting em `/api/auth/login` e `/api/auth/registrar`**: hoje nada
-  impede tentativas de força bruta contra o login ou criação em massa de
-  contas; um limitador (ex: Bucket4j, ou um proxy como Nginx/API Gateway na
-  frente) fecharia essa lacuna.
 - **Verificação de email no cadastro**: hoje qualquer email "com formato
   válido" é aceito sem confirmar que o dono realmente tem acesso a ele.
-- **Migrações versionadas (Flyway/Liquibase)**: `ddl-auto: update` é
-  suficiente para o escopo do desafio, mas não seria adequado em produção —
-  não há histórico/rollback de mudanças de schema.
-- **Testes end-to-end de verdade (Cypress/Playwright)**: o ambiente usado
-  para construir este projeto não tinha acesso a um navegador interativo,
-  então a validação do frontend ficou nos testes unitários (Jasmine/Karma) +
-  validação manual do backend via curl/Postman. Um suite E2E cobrindo os
-  fluxos completos (login → cadastro de pedido → mudança de status →
-  logout) daria mais confiança do que a combinação atual.
+- **Cache em pontos de leitura repetida**: hoje toda requisição autenticada
+  passa por `JwtAuthenticationFilter`, que faz `UsuarioRepository
+  .findByEmailIgnoreCase` a cada chamada — um dado que raramente muda,
+  ótimo candidato a `@Cacheable` (Spring Cache + Caffeine, TTL curto) em vez
+  de bater no banco a cada request. `GET /api/dashboard/metricas` também é
+  chamado em polling pelo frontend a cada 20s; um cache server-side de
+  poucos segundos reduziria consultas redundantes se o mesmo usuário tiver
+  múltiplas abas abertas. Nenhum dos dois foi feito agora porque o volume de
+  dados/requisições do desafio não justifica a complexidade adicional (cache
+  a invalidar, dependência nova) — mas seriam os primeiros pontos a otimizar
+  num cenário de tráfego real.
+- **Testes end-to-end de verdade (Cypress/Playwright)**: a validação do
+  frontend ficou nos testes unitários (Jasmine/Karma) + uma passada visual
+  manual via screenshots (ver "Validação realizada"), não um suite E2E de
+  verdade rodando os fluxos completos (login → cadastro de pedido → mudança
+  de status → logout) com asserções automatizadas de ponta a ponta.
 - **CI configurado** (GitHub Actions): rodar os testes (JUnit + Jasmine) e
   o build do Docker automaticamente a cada push/PR, aproveitando a proteção
   de branch já configurada na `main` (que hoje exige PR, mas não exige um
   check de CI passando).
-- **Prints/GIF da aplicação e do dashboard Grafana no README**: o ambiente
-  usado para construir este projeto não teve, neste momento, acesso a um
-  navegador interativo para capturar telas. Toda a validação visual foi
-  feita via `curl`, testes automatizados e consultas diretas às APIs do
-  Grafana/Prometheus/Loki/Tempo (ver seções de decisões técnicas) — mas
-  substituir isso por capturas reais deixaria a documentação mais concreta
+- **Internacionalização (i18n)**: hoje todo texto (telas, mensagens de
+  validação, mensagens de erro do backend) está hardcoded em português,
+  direto nos templates/componentes e no `GlobalExceptionHandler`. Suportar
+  outro idioma exigiria extrair essas strings (`@angular/localize` no
+  frontend) e parametrizar as mensagens de erro do backend por locale — não
+  foi feito porque o enunciado e o público-alvo do desafio são em português.
+- **Guia de acessibilidade**: a base do Angular Material já ajuda (contraste
+  razoável, navegação por teclado nos componentes prontos), mas há lacunas
+  reais não fechadas — por exemplo, os botões de ação da listagem
+  (processar/pausar/cancelar/excluir, em `pedido-list.component.html`) usam
+  `mat-icon-button` só com `matTooltip` (visível no hover/foco do mouse), sem
+  `aria-label` (o paginador, por comparação, já tem um). Um guia de
+  acessibilidade real cobriria isso, mais um audit de contraste de cor nas
+  paletas de status/marca e um teste manual de navegação inteiramente por
+  teclado/leitor de tela.
+- **Prints/GIF da aplicação e do dashboard Grafana no README**: screenshots
+  reais foram usados para validar a responsividade (ver "Validação
+  realizada"), mas não foram salvos como imagens versionadas no
+  repositório/README — incluí-los deixaria a documentação mais concreta
   para quem for avaliar sem rodar o projeto localmente.

@@ -1,5 +1,6 @@
 # Profile para rodar o backend direto na maquina (mvnw spring-boot:run ou IDE),
-# fora do Docker Compose, contra um MariaDB local (ver create-db-user.sh).
+# fora do Docker Compose, contra um MariaDB local (ver README, secao "Como
+# executar (local, sem Docker)", pro SQL de setup do banco/usuario).
 # Ativar com: -Dspring.profiles.active=local (ou SPRING_PROFILES_ACTIVE=local)
 #
 # O default de jwt-secret abaixo existe só pra dar uma experiência "clonou e

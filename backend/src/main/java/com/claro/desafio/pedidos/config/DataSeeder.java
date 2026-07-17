@@ -16,20 +16,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * Cria um usuario de demonstracao (mesmas credenciais documentadas no README
- * desde a fase obrigatoria do desafio) e, apenas na primeira subida, os 3
- * pedidos do seed do enunciado, associados a esse usuario.
- *
- * Os pedidos sao criados via PedidoService (nunca PedidoRepository
- * diretamente), passando pelas mesmas regras de negocio de qualquer pedido
- * real: limite maximo, status inicial sempre EM_PROCESSAMENTO (a mudanca
- * para PAUSADO/CANCELADO nos pedidos #2 e #3 acontece depois, via
- * alterarStatus, respeitando a mesma maquina de transicoes).
- *
- * @Profile("!test"): nao roda no profile de testes (ver
- * src/test/resources/application.yml) - nenhum teste depende dos dados
- * semeados, e alguns substituem PedidoService por mock (@MockitoBean) so
- * pra propria classe de teste, o que quebraria esse seed se ele rodasse ali.
+ * Cria o usuario de demonstracao e os 3 pedidos do seed na primeira subida.
+ * Passa pelo PedidoService (nao o repository direto) pra respeitar as mesmas
+ * regras de negocio. Nao roda no profile de teste - alguns testes mockam
+ * PedidoService, o que quebraria o seed se ele rodasse ali.
  */
 @Component
 @Profile("!test")

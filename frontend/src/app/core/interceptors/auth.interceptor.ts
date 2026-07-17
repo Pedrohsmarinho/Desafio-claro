@@ -5,13 +5,7 @@ import { catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../services/auth.service';
 
-/**
- * Anexa "Authorization: Bearer <token>" em toda requisicao para a API. Se a
- * API responder 401 (token ausente/invalido/expirado do lado do backend),
- * limpa a sessao local e redireciona para /login - cobre o caso do token
- * expirar em segundo plano (usuario deixou a aba aberta) mesmo que o
- * relogio do navegador diga que ainda e valido.
- */
+// anexa o Bearer token nas chamadas a API; em 401 limpa a sessao e redireciona pro login
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);

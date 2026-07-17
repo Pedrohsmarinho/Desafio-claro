@@ -35,13 +35,11 @@ const STATUS_ORDENADOS = [StatusPedido.EM_PROCESSAMENTO, StatusPedido.PAUSADO, S
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  /** Intervalo do polling que mantem os cards/graficos atualizados mesmo com mudancas feitas em outra aba/sessao. */
   private static readonly INTERVALO_POLLING_MS = 20_000;
 
   private subscription?: Subscription;
   private pollingSubscription?: Subscription;
 
-  /** Valor inicial seguro; atualizado para o real (app.pedidos.limite-maximo) assim que a primeira resposta de metricas chegar. */
   limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   totalPedidos = 0;
   totalEmProcessamento = 0;
@@ -74,22 +72,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Cards de resumo: Observable compartilhado, reflete imediatamente
-    // qualquer acao feita nesta aba (criar/excluir/mudar status).
     this.subscription = this.pedidoService.pedidos$.subscribe((pedidos) => {
       this.atualizarCardsResumo(pedidos);
       this.carregando = false;
     });
 
-    // Graficos (barras "por status" e pizza "vs. limite"): mesma fonte que
-    // alimenta o Grafana em espirito (uma unica contagem autoritativa no
-    // backend), mas escopada ao usuario logado - GET /api/dashboard/metricas,
-    // nao as metricas globais do Prometheus (ver DashboardService/README).
     this.carregarMetricas();
 
-    // Polling: cobre mudancas feitas em outra aba/sessao (ex: outro usuario,
-    // ou este mesmo usuario em outro dispositivo) sem precisar recarregar a
-    // pagina manualmente.
+    // cobre mudancas feitas em outra aba/sessao, sem precisar recarregar a pagina
     this.pollingSubscription = timer(DashboardComponent.INTERVALO_POLLING_MS, DashboardComponent.INTERVALO_POLLING_MS)
       .subscribe(() => {
         this.pedidoService.carregar();

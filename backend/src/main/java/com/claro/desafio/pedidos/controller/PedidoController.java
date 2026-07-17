@@ -25,12 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * O usuario dono dos pedidos e sempre o principal autenticado (injetado pelo
- * Spring Security a partir do JWT via JwtAuthenticationFilter) - nunca um
- * usuarioId vindo do corpo, path ou query da requisicao. Isso evita que um
- * usuario manipule pedidos de outro trocando um id na URL.
- */
+/** Dono dos pedidos vem sempre do principal autenticado (JWT), nunca de parametro da requisicao. */
 @RestController
 @RequestMapping("/api/pedidos")
 @RequiredArgsConstructor

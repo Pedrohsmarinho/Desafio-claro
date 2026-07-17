@@ -17,13 +17,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * GET /api/dashboard/metricas: metricas do usuario autenticado (cards e
- * graficos do dashboard do frontend) - consulta o banco escopada por
- * usuarioId, deliberadamente distinta das metricas globais de
- * /actuator/prometheus (ver PedidoService.buscarMetricasDashboard e o
- * README para a justificativa).
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class DashboardControllerTest {

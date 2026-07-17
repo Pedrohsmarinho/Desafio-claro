@@ -9,6 +9,7 @@ import com.claro.desafio.pedidos.service.exception.TransicaoInvalidaException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,14 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Testes unitarios do GlobalExceptionHandler isolado - sem subir contexto
- * Spring (sem @SpringBootTest/MockMvc). Cada excecao customizada e forcada
- * manualmente e o retorno (status HTTP + corpo ErrorResponse) e conferido
- * diretamente. Complementa (nao substitui) os testes de integracao via
- * controller ja existentes (AuthControllerTest, PedidoValidacaoControllerTest,
- * PedidoControllerErroInesperadoTest, PedidoControllerSecurityTest).
- */
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -138,7 +131,6 @@ class GlobalExceptionHandlerTest {
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resposta.getBody().status()).isEqualTo(400);
         assertThat(resposta.getBody().message()).isEqualTo("Corpo da requisicao invalido ou mal formatado");
-        // a mensagem tecnica original do Jackson (com nome de classe interna) nao deve vazar
         assertThat(resposta.getBody().message()).doesNotContain("JSON parse error").doesNotContain("java.lang.Long");
     }
 
@@ -152,6 +144,18 @@ class GlobalExceptionHandlerTest {
         assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(resposta.getBody().status()).isEqualTo(400);
         assertThat(resposta.getBody().message()).contains("id");
+    }
+
+    @Test
+    void handleViolacaoDeIntegridadeRetorna409SemVazarDetalheDeConstraintDoBanco() {
+        var ex = new DataIntegrityViolationException("could not execute statement; SQL [n/a]; constraint [uk_usuarios_email]");
+
+        ResponseEntity<ErrorResponse> resposta = handler.handleViolacaoDeIntegridade(ex, requestFake("POST", "/api/auth/registrar"));
+
+        assertThat(resposta.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(resposta.getBody().status()).isEqualTo(409);
+        assertThat(resposta.getBody().message()).isEqualTo("Ja existe uma conta cadastrada com este email");
+        assertThat(resposta.getBody().message()).doesNotContain("uk_usuarios_email").doesNotContain("SQL");
     }
 
     @Test

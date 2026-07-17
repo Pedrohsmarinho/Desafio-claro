@@ -17,7 +17,6 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     long countByUsuarioId(Long usuarioId);
 
-    // status e busca por nome sao opcionais; paginacao/ordenacao delegadas ao Pageable
     @Query("select p from Pedido p where p.usuarioId = :usuarioId "
             + "and (:status is null or p.status = :status) "
             + "and (:busca is null or lower(p.displayName) like lower(concat('%', :busca, '%')))")
@@ -27,10 +26,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
             @Param("busca") String busca,
             Pageable pageable);
 
-    // pedido de outro usuario deve "nao ser encontrado", nao 403
     Optional<Pedido> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    // escopada a um usuario (dashboard do frontend); countByStatus abaixo e a global (Grafana)
     long countByUsuarioIdAndStatus(Long usuarioId, StatusPedido status);
 
     long countByStatus(StatusPedido status);

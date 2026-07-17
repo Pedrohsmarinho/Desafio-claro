@@ -7,7 +7,6 @@ import { jwtExpirado } from '../utils/jwt.util';
 
 const STORAGE_KEY = 'pedidos_auth';
 
-// token em sessionStorage (nao localStorage): expira junto com a aba, nao persiste indefinidamente
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly apiUrl = `${environment.apiUrl}/auth`;

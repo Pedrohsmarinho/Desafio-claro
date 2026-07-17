@@ -74,10 +74,17 @@ npm start
 ```
 
 A API sobe em `http://localhost:8080`, o frontend em `http://localhost:4200`.
-O seed inicial (3 pedidos) é criado automaticamente pelo `DataSeeder` na
-primeira subida. O fluxo normal é criar sua própria conta em
-`http://localhost:4200` (seletor "Criar conta" — nome, email, senha mínima
-de 8 caracteres), com login automático após o cadastro.
+O seed inicial (3 pedidos + um usuário padrão) é criado automaticamente pelo
+`DataSeeder` na primeira subida. Credenciais do usuário padrão:
+
+```
+email: admin@pedidos.com
+senha: admin123
+```
+
+O fluxo normal, porém, é criar sua própria conta em `http://localhost:4200`
+(seletor "Criar conta" — nome, email, senha mínima de 8 caracteres), com
+login automático após o cadastro.
 
 ## Modelo de domínio — Pedido
 
@@ -174,9 +181,32 @@ Prometheus já estar rodando.
 - **Peso sempre em gramas na API**, conversão para kg só na apresentação.
 - **Logs estruturados** via SLF4J/Logback (`INFO`/`WARN`/`ERROR` conforme o
   cenário).
-- **Testes**: 83 testes JUnit no total (transições de status, isolamento
+- **Testes**: 86 testes JUnit no total (transições de status, isolamento
   entre usuários, autenticação, segurança via contexto Spring completo,
-  busca/paginação, dashboard, validação e cenários de erro/exceção).
+  busca/paginação, dashboard, validação, concorrência e cenários de
+  erro/exceção).
+
+### Concorrência
+
+Duas condições de corrida do tipo *check-then-act* (checagem e gravação
+como passos separados, sem atomicidade) foram identificadas e corrigidas:
+
+- **Limite de pedidos por usuário**: duas requisições concorrentes do mesmo
+  usuário podiam passar pela contagem (`< 5`) antes de qualquer uma
+  commitar, resultando em 6+ pedidos. Corrigido com lock pessimista
+  (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) na linha do usuário, dentro da
+  mesma transação que conta e cria o pedido — serializa requisições
+  concorrentes *do mesmo usuário*, sem bloquear usuários diferentes entre
+  si. Preferido a lock otimista com retry (mais complexidade do que o
+  problema pede) ou a uma constraint/trigger no banco (moveria regra de
+  negócio para fora do código). Validado com 8 requisições concorrentes:
+  exatamente 1 chega a `201`, as demais recebem `422`, e o total final no
+  banco é sempre 5.
+- **Cadastro com e-mail duplicado**: aqui a constraint `UNIQUE` já existente
+  na coluna `email` é a própria garantia de atomicidade — só foi necessário
+  capturar e traduzir a exceção (`DataIntegrityViolationException`) para um
+  `409 Conflict` padronizado, em vez de vazar um `500` com a mensagem
+  técnica do banco.
 
 ### Cobertura de código (JaCoCo)
 
@@ -243,7 +273,8 @@ retornava `500` em vez de `400`/`405`.
 ## Validação realizada
 
 - **Backend**: bateria de `curl` cobrindo login, registro, CRUD de pedidos,
-  limites e autorização; 83 testes JUnit rodando contra H2, com 100% de
+  limites, autorização e concorrência; 86 testes JUnit rodando contra H2,
+  com 100% de
   linhas cobertas no `GlobalExceptionHandler`.
 - **Frontend**: `ng build` sem erros; 71 testes Jasmine/Karma.
 - **Visual**: screenshots reais (Chrome headless) em 1440px e 390px,

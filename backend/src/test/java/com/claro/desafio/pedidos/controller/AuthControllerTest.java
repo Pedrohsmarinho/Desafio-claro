@@ -16,12 +16,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Contexto Spring completo (MockMvc, sem mocks) cobrindo os caminhos de erro
- * de /api/auth - complementa AuthServiceTest (que testa a mesma logica
- * isolada, com o repositorio mockado) confirmando os codigos HTTP e o
- * formato de erro de verdade, atraves do GlobalExceptionHandler.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthControllerTest {

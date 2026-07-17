@@ -15,12 +15,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-/**
- * Cria o usuario de demonstracao e os 3 pedidos do seed na primeira subida.
- * Passa pelo PedidoService (nao o repository direto) pra respeitar as mesmas
- * regras de negocio. Nao roda no profile de teste - alguns testes mockam
- * PedidoService, o que quebraria o seed se ele rodasse ali.
- */
 @Component
 @Profile("!test")
 @RequiredArgsConstructor

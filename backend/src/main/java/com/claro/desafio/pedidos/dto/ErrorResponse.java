@@ -15,7 +15,6 @@ public record ErrorResponse(
         return new ErrorResponse(Instant.now(), status, error, message, path);
     }
 
-    // deriva status/error do HttpStatus; usado por GlobalExceptionHandler e JwtAuthenticationEntryPoint
     public static ErrorResponse of(HttpStatus status, String message, String path) {
         return of(status.value(), status.getReasonPhrase(), message, path);
     }

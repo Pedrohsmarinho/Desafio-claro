@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-/** Retorna a entidade Usuario, nao o DTO - a conversao pra LoginResponse fica no AuthController. */
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -38,7 +37,6 @@ public class AuthService {
         return new UsuarioAutenticado(usuario, jwtService.gerarToken(usuario.getEmail()));
     }
 
-    /** Cadastra um novo usuario e ja autentica (retorna token), evitando um passo extra de login. */
     public UsuarioAutenticado registrar(RegistroRequest request) {
         if (usuarioRepository.existsByEmailIgnoreCase(request.email())) {
             log.warn("Tentativa de cadastro com email ja existente: '{}'", request.email());

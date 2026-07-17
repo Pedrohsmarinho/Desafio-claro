@@ -3,7 +3,9 @@ package com.claro.desafio.pedidos.service;
 import com.claro.desafio.pedidos.domain.Pedido;
 import com.claro.desafio.pedidos.domain.StatusPedido;
 import com.claro.desafio.pedidos.dto.PedidoRequest;
+import com.claro.desafio.pedidos.domain.Usuario;
 import com.claro.desafio.pedidos.repository.PedidoRepository;
+import com.claro.desafio.pedidos.repository.UsuarioRepository;
 import com.claro.desafio.pedidos.service.exception.LimiteExcedidoException;
 import com.claro.desafio.pedidos.service.exception.PedidoNaoEncontradoException;
 import com.claro.desafio.pedidos.service.exception.TransicaoInvalidaException;
@@ -31,19 +33,20 @@ class PedidoServiceTest {
     @Mock
     private PedidoRepository pedidoRepository;
 
+    @Mock
+    private UsuarioRepository usuarioRepository;
+
     private PedidoService pedidoService;
 
     @BeforeEach
     void setUp() {
-        // SimpleMeterRegistry (real, em memoria) em vez de mock: o Counter
-        // registrado no construtor do PedidoService precisa de um MeterRegistry
-        // funcional, um mock puro nao suporta o registro interno do Micrometer.
-        pedidoService = new PedidoService(pedidoRepository, new SimpleMeterRegistry());
+        pedidoService = new PedidoService(pedidoRepository, usuarioRepository, new SimpleMeterRegistry());
         ReflectionTestUtils.setField(pedidoService, "limiteMaximo", 5);
     }
 
     @Test
     void deveCriarPedidoQuandoAbaixoDoLimite() {
+        when(usuarioRepository.buscarPorIdComLock(USUARIO_1)).thenReturn(Optional.of(new Usuario()));
         when(pedidoRepository.countByUsuarioId(USUARIO_1)).thenReturn(4L);
         PedidoRequest request = new PedidoRequest("Cliente Teste", 2, 1000L);
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(invocation -> {
@@ -73,7 +76,6 @@ class PedidoServiceTest {
 
     @Test
     void limiteDeveSerPorUsuarioNaoGlobal() {
-        // usuario 1 tem 5 pedidos (no limite), mas usuario 2 nao tem nenhum: deve poder criar
         when(pedidoRepository.countByUsuarioId(USUARIO_2)).thenReturn(0L);
         PedidoRequest request = new PedidoRequest("Cliente Teste", 2, 1000L);
         when(pedidoRepository.save(any(Pedido.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -116,8 +118,6 @@ class PedidoServiceTest {
 
     @Test
     void deveLancarNaoEncontradoAoAcessarPedidoDeOutroUsuario() {
-        // pedido 1 existe (pertence ao usuario 1), mas usuario 2 tenta acessa-lo:
-        // o repositorio (findByIdAndUsuarioId) simplesmente nao encontra nada para esse par id+usuario
         when(pedidoRepository.findByIdAndUsuarioId(1L, USUARIO_2)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> pedidoService.alterarStatus(1L, StatusPedido.PAUSADO, USUARIO_2))

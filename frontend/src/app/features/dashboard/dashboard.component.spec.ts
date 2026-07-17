@@ -44,11 +44,6 @@ describe('DashboardComponent', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
 
-    // PedidoService dispara um GET no proprio construtor (pedidos, e tambem
-    // metricas, pra saber o limite maximo real), e o ngOnInit do componente
-    // reage ao Observable compartilhado de pedidos (cards) e dispara seu
-    // proprio GET /api/dashboard/metricas separadamente (graficos) - por isso
-    // ha duas requisicoes pendentes pra metricasUrl nesse ponto.
     httpMock.match(`${environment.apiUrl}/pedidos`).forEach((req) => req.flush(pedidos));
     httpMock.match(metricasUrl).forEach((req) => req.flush(metricas));
     fixture.detectChanges();
@@ -74,10 +69,6 @@ describe('DashboardComponent', () => {
   });
 
   it('faz polling periodico recarregando os pedidos e as metricas', fakeAsync(() => {
-    // o componente da instancia criada no beforeEach ja agendou seu timer de
-    // polling fora da zona fakeAsync (tick() nao o rastreia); por isso essa
-    // instancia e destruida e uma nova e criada aqui dentro, para que o
-    // timer nasca dentro da zona controlada pelo tick().
     fixture.destroy();
 
     const pedidoService = TestBed.inject(PedidoService);

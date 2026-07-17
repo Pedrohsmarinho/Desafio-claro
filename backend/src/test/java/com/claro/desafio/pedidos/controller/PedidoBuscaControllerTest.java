@@ -19,12 +19,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * GET /api/pedidos/busca: filtro (status/nome), paginacao e ordenacao
- * resolvidos no banco - a listagem do frontend passou a chamar esse
- * endpoint a cada mudanca de filtro/pagina/ordenacao, em vez de carregar
- * tudo uma vez e filtrar no navegador (ver PedidoListComponent).
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class PedidoBuscaControllerTest {

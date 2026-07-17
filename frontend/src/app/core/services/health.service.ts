@@ -5,7 +5,6 @@ import { environment } from '../../../environments/environment';
 
 export type StatusApi = 'verificando' | 'up' | 'down';
 
-// consome /actuator/health de verdade, com polling simples a cada 30s
 @Injectable({ providedIn: 'root' })
 export class HealthService {
   private readonly INTERVALO_MS = 30_000;

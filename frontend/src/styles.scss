@@ -2,7 +2,6 @@
 
 @include mat.core();
 
-// escala derivada do vermelho de marca (#E4002B), nao o vermelho generico do Material
 $claro-red: (
   50: #fef2f4,
   100: #fbd9df,
@@ -65,7 +64,6 @@ $pedidos-theme: mat.define-light-theme((
   --cor-texto: #1c1c1c;
   --cor-texto-suave: #6b6b6b;
 
-  // cores de status independentes da paleta de marca, pra nao confundir com o vermelho da Claro
   --status-em-processamento: #1d6fa5;
   --status-em-processamento-bg: #e3f1fa;
   --status-pausado: #b9781a;
@@ -73,7 +71,6 @@ $pedidos-theme: mat.define-light-theme((
   --status-cancelado: #8f2323;
   --status-cancelado-bg: #f7e2e2;
 
-  // px de proposito: forma visual fixa, nao precisa escalar com zoom de fonte
   --raio-card: 14px;
   --raio-botao: 10px;
   --sombra-card: 0 1px 2px rgba(28, 28, 28, 0.06), 0 4px 12px rgba(28, 28, 28, 0.05);

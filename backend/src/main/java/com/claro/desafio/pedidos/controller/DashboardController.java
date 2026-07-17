@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Metricas escopadas ao usuario autenticado - distinto das globais em /actuator/prometheus. */
 @RestController
 @RequestMapping("/api/dashboard")
 @RequiredArgsConstructor

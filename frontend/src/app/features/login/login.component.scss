@@ -2,7 +2,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  // 3rem = altura da toolbar (ver app-toolbar), subtraida da viewport
   min-height: calc(100vh - 3rem);
 }
 
@@ -40,7 +39,6 @@
 @keyframes fade-in {
   from {
     opacity: 0;
-    // deslocamento decorativo minimo, mantido em px de proposito
     transform: translateY(4px);
   }
   to {

@@ -18,13 +18,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-/**
- * /api/auth/**, /actuator/** e a documentacao Swagger ficam publicas; todo o
- * resto (em particular /api/pedidos/**) exige um JWT valido, verificado pelo
- * JwtAuthenticationFilter antes do filtro padrao de autenticacao por
- * usuario/senha. Sem autenticacao valida, JwtAuthenticationEntryPoint
- * responde 401 em JSON.
- */
+/** /api/auth/**, /actuator/** e o Swagger ficam publicos; o resto exige JWT valido. */
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig {

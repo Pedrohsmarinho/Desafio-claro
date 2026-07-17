@@ -22,14 +22,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Todas as operacoes sao escopadas por usuarioId (multi-tenant): o limite de
- * 5 pedidos e por usuario (nao global), e buscar/alterar/excluir um pedido
- * que existe mas pertence a outro usuario resulta em
- * PedidoNaoEncontradoException (404) - nunca 403, para nao revelar que o
- * recurso existe e de quem e. O usuarioId sempre vem do JWT (via
- * PedidoController), nunca de parametro da requisicao.
- */
+/** Operacoes escopadas por usuarioId; pedido de outro usuario retorna 404, nao 403. */
 @Service
 public class PedidoService {
 
@@ -43,11 +36,7 @@ public class PedidoService {
 
     public PedidoService(PedidoRepository pedidoRepository, MeterRegistry meterRegistry) {
         this.pedidoRepository = pedidoRepository;
-        // Counter (nao Gauge): pedidos_total representa quantos pedidos ja foram
-        // criados historicamente (metrica cumulativa, condizente com o sufixo
-        // "_total" do padrao Prometheus/OpenMetrics) - nao decresce com exclusoes,
-        // ao contrario de pedidos_by_status (ver PedidoMetrics), que reflete o
-        // estado atual e por isso e um Gauge.
+        // Counter, nao Gauge: e cumulativo, nao decresce com exclusoes (diferente de pedidos_by_status)
         this.pedidosTotalCounter = Counter.builder("pedidos_total")
                 .description("Total de pedidos criados (cumulativo, nao decresce com exclusoes)")
                 .register(meterRegistry);
@@ -57,25 +46,12 @@ public class PedidoService {
         return pedidoRepository.findByUsuarioId(usuarioId);
     }
 
-    /**
-     * Filtro (status/busca por nome, ambos opcionais), ordenacao e paginacao
-     * resolvidos no banco - usada pela listagem paginada da API, distinta de
-     * {@link #listarTodos} (que continua retornando tudo de uma vez, usado
-     * pelo dashboard e pela checagem de limite no cadastro).
-     */
     public Page<Pedido> buscar(Long usuarioId, StatusPedido status, String busca, Pageable pageable) {
         String buscaNormalizada = (busca == null || busca.isBlank()) ? null : busca.trim();
         return pedidoRepository.buscar(usuarioId, status, buscaNormalizada, pageable);
     }
 
-    /**
-     * Metricas do dashboard do usuario logado (cards/graficos do frontend) -
-     * consulta o banco diretamente, escopada por usuarioId. Deliberadamente
-     * NAO le do MeterRegistry: pedidos_by_status e pedidos_total (ver
-     * PedidoMetrics) sao metricas globais para o Grafana, de proposito
-     * diferente (saude/uso agregado do sistema, nao "meus pedidos agora") -
-     * ver README para a justificativa completa dessa distincao.
-     */
+    // consulta o banco direto, nao o MeterRegistry: pedidos_by_status/pedidos_total sao globais (Grafana), isso e por usuario
     public DashboardMetricasResponse buscarMetricasDashboard(Long usuarioId) {
         Map<StatusPedido, Long> porStatus = new EnumMap<>(StatusPedido.class);
         for (StatusPedido status : StatusPedido.values()) {

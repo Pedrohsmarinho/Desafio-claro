@@ -34,7 +34,6 @@ import { extrairMensagemErro } from '../../../core/utils/http-error.util';
 export class PedidoFormComponent implements OnInit, OnDestroy {
   private readonly subscriptions = new Subscription();
 
-  /** Valor inicial seguro; atualizado para o real (app.pedidos.limite-maximo) assim que PedidoService o carrega. */
   limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   totalPedidos = 0;
   enviando = false;

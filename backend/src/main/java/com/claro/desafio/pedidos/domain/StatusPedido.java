@@ -6,18 +6,11 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Status possiveis de um pedido e a maquina de estados que governa as
- * transicoes permitidas entre eles.
- *
  * Transicoes permitidas (De -> Para):
- *   EM_PROCESSAMENTO -> PAUSADO
- *   EM_PROCESSAMENTO -> CANCELADO
- *   PAUSADO          -> CANCELADO
- *   PAUSADO          -> EM_PROCESSAMENTO
+ *   EM_PROCESSAMENTO -> PAUSADO, CANCELADO
+ *   PAUSADO          -> CANCELADO, EM_PROCESSAMENTO
  *   CANCELADO        -> EM_PROCESSAMENTO
- *
- * Qualquer transicao fora dessa tabela (incluindo CANCELADO -> PAUSADO ou
- * transicoes para o mesmo estado) e considerada invalida.
+ * Qualquer outra combinacao (incluindo mesmo estado) e invalida.
  */
 public enum StatusPedido {
     EM_PROCESSAMENTO,

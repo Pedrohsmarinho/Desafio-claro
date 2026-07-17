@@ -54,20 +54,7 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), req);
     }
 
-    /**
-     * Rota que nao existe (nenhum @RequestMapping casa com o path/metodo).
-     * Depende de spring.mvc.throw-exception-if-no-handler-found e
-     * spring.web.resources.add-mappings=false (application.yml) - sem isso,
-     * cairia no tratamento padrao de recurso estatico do Spring (Whitelabel
-     * Error Page em HTML) em vez do mesmo formato JSON usado pelos outros
-     * 404 da API.
-     *
-     * NoResourceFoundException e o que o Spring Framework 6.1+/Boot 3.2+ de
-     * fato lanca nesse cenario (nao o mais antigo NoHandlerFoundException) -
-     * descoberto empiricamente ao escrever o teste
-     * rotaInexistenteRetorna404ComFormatoJsonPadronizado, que sem esse handler
-     * especifico caia no catch-all generico (500) em vez do 404 esperado.
-     */
+    // rota que nao existe; depende de throw-exception-if-no-handler-found=true (application.yml)
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleRecursoNaoEncontrado(NoResourceFoundException ex, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, "Rota nao encontrada: " + ex.getHttpMethod() + " " + ex.getResourcePath(), req);
@@ -78,23 +65,13 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Corpo da requisicao invalido ou mal formatado", req);
     }
 
-    /**
-     * Path variable ou query param com tipo incompativel (ex: DELETE /api/pedidos/abc
-     * ou PATCH /api/pedidos/abc/status, onde {id} espera um Long) - sem esse
-     * handler, cai no catch-all generico (Exception.class) e retorna 500 em
-     * vez de 400, mesmo sendo claramente um erro de entrada do cliente.
-     */
+    // path variable/query param com tipo incompativel (ex: DELETE /api/pedidos/abc)
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTipoInvalido(MethodArgumentTypeMismatchException ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "Valor invalido para o parametro '" + ex.getName() + "'", req);
     }
 
-    /**
-     * Path existe (casa com o padrao de outro metodo, ex: DELETE /api/pedidos/{id}),
-     * mas o verbo HTTP usado nao tem handler pra esse padrao (ex: GET
-     * /api/pedidos/abc - nao existe GET /api/pedidos/{id}, so DELETE/PATCH) -
-     * sem esse handler, cai no catch-all generico e retorna 500 em vez de 405.
-     */
+    // path existe mas nao pra esse verbo (ex: GET /api/pedidos/abc, so ha DELETE/PATCH /{id})
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMetodoNaoSuportado(HttpRequestMethodNotSupportedException ex, HttpServletRequest req) {
         return build(HttpStatus.METHOD_NOT_ALLOWED, ex.getMessage(), req);

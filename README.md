@@ -59,10 +59,10 @@ cd backend
 > containerizado e criado automaticamente (ver seção seguinte), e o profile
 > default (`application.yml`, sem `local`) já é o usado lá dentro.
 
-A API sobe em `http://localhost:8080`. O schema (tabela `pedidos`) é criado/
-atualizado automaticamente pelo Hibernate (`ddl-auto: update`) na primeira
-subida, e o seed inicial é aplicado pelo `DataSeeder` somente se a tabela
-estiver vazia.
+A API sobe em `http://localhost:8080`. O schema (tabelas `usuarios`/
+`pedidos`) é criado automaticamente pelo Flyway na primeira subida (ver
+[Migrations de banco (Flyway)](#migrations-de-banco-flyway)), e o seed
+inicial é aplicado pelo `DataSeeder` somente se a tabela estiver vazia.
 
 Um usuário de demonstração é populado automaticamente pelo `DataSeeder` na
 primeira subida (junto com os 3 pedidos do seed) — as credenciais estão no
@@ -131,6 +131,37 @@ esperar manualmente ou reiniciar o backend na primeira subida.
 | Tempo | http://localhost:3200 (sem UI própria; consultado via Grafana) |
 | Grafana | http://localhost:3000 (usuário `admin`, senha `admin`) |
 | MariaDB | `localhost:3307` (usuário `pedidos_user`, senha `pedidos_pass`, banco `pedidos_db`) — porta `3307`, não `3306`, para não conflitar com um MariaDB local já rodando; entre containers o acesso é via o nome de serviço `mariadb:3306` |
+
+### Versões fixas (Docker)
+
+Todas as imagens do `docker-compose.yml` usam uma tag exata — nenhuma
+`latest` (nem tag implícita): num rebuild daqui a alguns meses, `latest`
+poderia resolver pra uma versão diferente da que foi testada aqui, quebrando
+a promessa de "reprodutível" que um `docker compose up` deveria dar. As
+versões abaixo são as que estavam realmente em uso no momento em que este
+projeto foi testado — se forem atualizadas no futuro, atualize esta tabela
+junto.
+
+| Peça | Versão |
+|---|---|
+| MariaDB | 11.8.8 |
+| Prometheus | v3.13.1 |
+| Loki | 3.7.3 |
+| Promtail | 3.6.8 |
+| Tempo | 3.0.0 |
+| Grafana | 13.1.0 |
+| JDK (build/runtime do backend) | Eclipse Temurin 17 (`17-jdk` / `17-jre-alpine`) |
+| Node (build do frontend) | 20 (`node:20-alpine`) |
+| Nginx (runtime do frontend) | 1.27 (`nginx:1.27-alpine`) |
+
+As três últimas linhas (JDK/Node/Nginx) já usavam tags de versão major
+específica antes desta revisão — não `latest` — então continuam com esse
+mesmo estilo de pin (major.minor fixo, patch flutuante), diferente do pin
+exato usado nas imagens de observabilidade/banco acima. Motivo: para imagens
+que só existem dentro do build (nunca expostas como serviço de longa duração
+com estado), receber patches de segurança automaticamente no `patch` é mais
+valioso do que travar 100% — o `major`/`minor` já garante compatibilidade de
+API/comportamento.
 
 Um único dashboard **"Pedidos API - Visão Geral e Saúde"** já vem
 provisionado automaticamente no Grafana (login → Dashboards), reunindo
@@ -349,8 +380,9 @@ obrigatórios (que foram implementados e validados primeiro).
 Duas armadilhas encontradas ao montar isso, registradas para quem for
 reproduzir:
 
-1. **Tempo v3 mudou o schema de configuração**: a imagem `grafana/tempo:latest`
-   hoje é a v3, que reestruturou o antigo modelo de `ingester`/`compactor`
+1. **Tempo v3 mudou o schema de configuração**: a imagem `grafana/tempo`
+   (fixada em `3.0.0`, ver [Versões fixas (Docker)](#versões-fixas-docker))
+   reestruturou o antigo modelo de `ingester`/`compactor`
    (existentes na v2) para uma arquitetura de "live-store" — um
    `tempo.yaml` com as seções antigas falha com
    `field ingester not found in type app.Config`. A configuração mínima
@@ -412,9 +444,12 @@ Em `/postman`:
   que sobem contexto Spring (`PedidosApiApplicationTests`) usam
   `src/test/resources/application.yml`, que o Maven prioriza sobre o arquivo
   de `main` no classpath de teste — nenhuma anotação de profile foi
-  necessária. `ddl-auto: update` continua sendo suficiente (sem Flyway/
-  Liquibase) dado o escopo do desafio; dados são populados pelo `DataSeeder`
-  (`CommandLineRunner`) apenas se a tabela estiver vazia.
+  necessária.
+- **Flyway em vez de `ddl-auto: update`**: quem cria/altera o schema agora é
+  o Flyway (`ddl-auto: validate` só confere se as entidades batem com as
+  tabelas reais); ver seção dedicada
+  [Migrations de banco (Flyway)](#migrations-de-banco-flyway) para o
+  raciocínio completo.
 - **Regra de transição de status no enum** (`StatusPedido`) em vez de no
   `Service`: mantém a regra de negócio como parte do próprio domínio, mais
   fácil de testar isoladamente e impossível de "esquecer" de validar em um
@@ -529,6 +564,64 @@ Em `/postman`:
   isolado, sem contexto Spring/MockMvc — cada exceção customizada e a
   genérica forçadas manualmente, conferindo status HTTP e corpo JSON
   diretamente). 83 testes no total.
+
+### Migrations de banco (Flyway)
+
+Até aqui, o schema (tabelas `usuarios`/`pedidos`) era criado/atualizado
+automaticamente pelo Hibernate (`ddl-auto: update`) a partir das entidades
+JPA — funciona, mas quem "manda" no schema fica sendo um efeito colateral da
+inicialização da aplicação, não algo versionado e auditável. Trocado por
+**Flyway**, o padrão mais usado com Spring Boot para versionar mudanças de
+schema:
+
+- **`flyway-core` + `flyway-mysql`** no `pom.xml`: o segundo é necessário
+  porque, a partir do Flyway 10, o suporte a MySQL/MariaDB saiu do
+  `flyway-core` e virou um módulo à parte — sem ele o Flyway sobe sem
+  reconhecer o dialeto do banco. MariaDB é tratado pela compatibilidade com o
+  dialeto MySQL (não existe um `flyway-mariadb` dedicado).
+- **`spring.jpa.hibernate.ddl-auto: validate`** no lugar de `update`: o
+  Hibernate passa a só *conferir*, na subida, se as entidades batem com as
+  tabelas reais — e falha rápido (a aplicação nem sobe) se divergirem, em vez
+  de alterar algo sozinho. Quem cria/altera schema agora é só o Flyway.
+- **`db/migration/V1__criar_tabelas.sql`**: primeira migration, criando
+  `usuarios`/`pedidos` com exatamente o schema que o Hibernate vinha gerando
+  (conferido via `mariadb-dump` contra o banco rodando) — inclusive o detalhe
+  de que `status` (`@Enumerated(EnumType.STRING)`) virou uma coluna `ENUM(...)`
+  nativa do MariaDB, não um `VARCHAR` genérico, porque foi o que o dialeto
+  Hibernate/MariaDB já escolhia automaticamente.
+- **Seed inicial continua no `DataSeeder` (`CommandLineRunner`), não virou
+  migration**: os 3 pedidos de exemplo são criados chamando `PedidoService`
+  (não SQL direto), então passam pelas mesmas regras de negócio (limite por
+  usuário, transições de status válidas) que qualquer pedido criado via API.
+  Uma migration SQL não teria como aplicar essas regras — teria que
+  reimplementá-las em SQL ou confiar que os dados semeados nunca as violam.
+  Por isso a divisão de responsabilidade ficou: **Flyway cuida só de
+  estrutura** (tabelas/colunas/índices), **dado inicial continua vindo do
+  Service**. Não existe (nem faz sentido existir) um `V2__seed_inicial.sql`.
+- **Convenção de nomes `V<versão>__<descrição>.sql`**: o Flyway lê o prefixo
+  numérico para decidir a ordem de execução (não a ordem alfabética do nome
+  inteiro) e mantém esse histórico na tabela `flyway_schema_history`
+  (checksum de cada migration incluído). Se uma migration já aplicada em
+  algum ambiente for editada depois, o checksum não bate mais e o Flyway
+  **trava a subida** em vez de deixar passar — isso é proposital: é a garantia
+  de que produção, homologação e o ambiente de cada desenvolvedor aplicaram
+  exatamente as mesmas mudanças, na mesma ordem. Qualquer alteração de schema
+  daqui pra frente vira uma migration nova (`V3__...`, `V4__...`, sempre
+  incrementando); nunca se edita uma migration antiga já aplicada — mesmo
+  para "só corrigir um typo".
+- **Perfil de testes (`application-test.yml`) continua com H2 +
+  `ddl-auto: create-drop`, e o Flyway fica desligado ali
+  (`spring.flyway.enabled: false`)**: as migrations em `db/migration` usam
+  sintaxe específica do dialeto MySQL/MariaDB (`ENUM`, `AUTO_INCREMENT`,
+  `ENGINE=InnoDB`), que não roda no H2. Testes usam H2 em memória pela
+  velocidade/isolamento (nenhum precisa validar o SQL das migrations em si),
+  então o Hibernate continua criando o schema direto das entidades só nesse
+  perfil — nenhum teste precisou de ajuste além dessa linha de configuração;
+  os 83 testes do backend continuaram passando sem alteração.
+- **Validado subindo o banco do zero** (`docker compose down -v` seguido de
+  `docker compose up --build`): o Flyway cria a tabela de controle
+  `flyway_schema_history`, aplica a `V1` automaticamente e o backend sobe
+  saudável (`/actuator/health` → `db: UP`) sem nenhum passo manual.
 
 ### Cobertura de código (JaCoCo) e testes de cenários de erro
 
@@ -929,6 +1022,12 @@ revisão de responsividade/UX descrita nas decisões técnicas do frontend:
   e cadastro de pedido em 1440px e 390px de largura, usados pra confirmar a
   troca de `px` por `rem` e as correções de responsividade (ver "Análise e
   correções de UX/UI" nas decisões técnicas do frontend).
+- Docker/Flyway: `docker compose down -v` (apagando os volumes de banco e
+  observabilidade) seguido de `docker compose up --build`, confirmando que
+  as imagens fixas sobem normalmente e que o Flyway cria o schema do zero
+  sozinho (`flyway_schema_history` + `V1__criar_tabelas.sql` aplicada),
+  sem nenhum passo manual — backend saudável (`/actuator/health` →
+  `db: UP`) e seed inicial aplicado pelo `DataSeeder` como antes.
 
 **Recomendação**: mesmo assim, antes de considerar o fluxo 100% validado
 por completo, abra `http://localhost:4200` em um navegador e percorra

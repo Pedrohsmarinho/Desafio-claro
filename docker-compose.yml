@@ -1,6 +1,6 @@
 services:
   mariadb:
-    image: mariadb:11
+    image: mariadb:11.8.8
     # 3307 (nao 3306) no host: evita conflito com um MariaDB local que
     # porventura ja esteja escutando em 127.0.0.1:3306. Entre containers
     # (backend, etc.) o acesso continua via o nome de servico "mariadb"
@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.13.1
     ports:
       - "9090:9090"
     volumes:
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
 
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.3
     ports:
       - "3100:3100"
     volumes:
@@ -80,7 +80,7 @@ services:
     restart: unless-stopped
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:3.6.8
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
       # Socket do Docker (somente leitura): usado pelo Promtail para descobrir
@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
 
   tempo:
-    image: grafana/tempo:latest
+    image: grafana/tempo:3.0.0
     ports:
       - "3200:3200"
     command: ["-config.file=/etc/tempo.yaml"]
@@ -101,7 +101,7 @@ services:
     restart: unless-stopped
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.1.0
     ports:
       - "3000:3000"
     environment:

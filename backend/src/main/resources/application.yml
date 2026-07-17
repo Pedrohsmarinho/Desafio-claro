@@ -24,7 +24,10 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # o Flyway agora e quem cria/altera o schema (ver db/migration); o
+      # Hibernate so confere se as entidades batem com as tabelas reais e
+      # falha rapido na subida se divergirem, em vez de alterar algo sozinho.
+      ddl-auto: validate
     show-sql: false
     open-in-view: false
     properties:

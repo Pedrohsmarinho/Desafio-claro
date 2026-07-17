@@ -45,6 +45,16 @@
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<!-- Flyway trata MariaDB via compatibilidade com o dialeto MySQL; sem
+			     esse modulo o Flyway nao reconhece o banco na inicializacao. -->
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-mysql</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>io.micrometer</groupId>
 			<artifactId>micrometer-registry-prometheus</artifactId>
 			<scope>runtime</scope>

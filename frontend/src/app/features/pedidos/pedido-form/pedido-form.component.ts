@@ -12,6 +12,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { LIMITE_MAXIMO_PEDIDOS } from '../../../core/models/pedido.model';
 import { PedidoService } from '../../../core/services/pedido.service';
+import { extrairMensagemErro } from '../../../core/utils/http-error.util';
 
 @Component({
   selector: 'app-pedido-form',
@@ -31,9 +32,9 @@ import { PedidoService } from '../../../core/services/pedido.service';
   styleUrl: './pedido-form.component.scss',
 })
 export class PedidoFormComponent implements OnInit, OnDestroy {
-  private subscription?: Subscription;
+  private readonly subscriptions = new Subscription();
 
-  readonly limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
+  limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   totalPedidos = 0;
   enviando = false;
   erroEnvio: string | null = null;
@@ -52,11 +53,16 @@ export class PedidoFormComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.subscription = this.pedidoService.pedidos$.subscribe((pedidos) => (this.totalPedidos = pedidos.length));
+    this.subscriptions.add(
+      this.pedidoService.pedidos$.subscribe((pedidos) => (this.totalPedidos = pedidos.length)),
+    );
+    this.subscriptions.add(
+      this.pedidoService.limiteMaximo$.subscribe((limite) => (this.limiteMaximo = limite)),
+    );
   }
 
   ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
+    this.subscriptions.unsubscribe();
   }
 
   get limiteAtingido(): boolean {
@@ -80,18 +86,13 @@ export class PedidoFormComponent implements OnInit, OnDestroy {
         const mensagem = pedido.origemLocal
           ? 'API indisponível: pedido salvo localmente e será sincronizado depois'
           : 'Pedido cadastrado com sucesso';
-        this.snackBar.open(mensagem, 'Fechar', { duration: 4000 });
+        this.snackBar.open(mensagem, 'Fechar', { duration: 4000, panelClass: 'snackbar-sucesso' });
         this.router.navigate(['/pedidos']);
       },
       error: (err) => {
         this.enviando = false;
-        this.erroEnvio = this.extrairMensagemErro(err);
+        this.erroEnvio = extrairMensagemErro(err, 'Ocorreu um erro inesperado ao cadastrar o pedido');
       },
     });
-  }
-
-  private extrairMensagemErro(err: unknown): string {
-    const httpError = err as { error?: { message?: string }; message?: string };
-    return httpError?.error?.message ?? httpError?.message ?? 'Ocorreu um erro inesperado ao cadastrar o pedido';
   }
 }

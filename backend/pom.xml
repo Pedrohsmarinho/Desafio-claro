@@ -6,28 +6,16 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.5.0</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
 	</parent>
 	<groupId>com.claro.desafio</groupId>
 	<artifactId>pedidos-api</artifactId>
 	<version>1.0.0</version>
 	<name>pedidos-api</name>
 	<description>API de gestao de pedidos - Desafio Tecnico Claro</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
 	<properties>
 		<java.version>17</java.version>
+		<mapstruct.version>1.6.3</mapstruct.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -107,6 +95,11 @@
 			<optional>true</optional>
 		</dependency>
 		<dependency>
+			<groupId>org.mapstruct</groupId>
+			<artifactId>mapstruct</artifactId>
+			<version>${mapstruct.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
@@ -148,6 +141,18 @@
 									<groupId>org.projectlombok</groupId>
 									<artifactId>lombok</artifactId>
 								</path>
+								<path>
+									<groupId>org.mapstruct</groupId>
+									<artifactId>mapstruct-processor</artifactId>
+									<version>${mapstruct.version}</version>
+								</path>
+								<!-- coordena a ordem lombok -> mapstruct quando a mesma classe usa
+								     as duas anotacoes (nao e o caso hoje, mas evita problema futuro) -->
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok-mapstruct-binding</artifactId>
+									<version>0.2.0</version>
+								</path>
 							</annotationProcessorPaths>
 						</configuration>
 					</execution>
@@ -163,8 +168,70 @@
 									<groupId>org.projectlombok</groupId>
 									<artifactId>lombok</artifactId>
 								</path>
+								<path>
+									<groupId>org.mapstruct</groupId>
+									<artifactId>mapstruct-processor</artifactId>
+									<version>${mapstruct.version}</version>
+								</path>
+								<path>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok-mapstruct-binding</artifactId>
+									<version>0.2.0</version>
+								</path>
 							</annotationProcessorPaths>
 						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<!--
+				Cobertura de codigo (JaCoCo). prepare-agent instrumenta a JVM antes
+				dos testes (fase initialize); report gera o HTML em
+				target/site/jacoco/index.html logo apos os testes rodarem (fase
+				test, executado depois do surefire por estar declarado depois dele
+				no pom). Sem jacoco:check por enquanto - nenhum threshold minimo de
+				cobertura configurado ainda, de proposito (ver README): queremos ver
+				o numero real antes de definir uma meta.
+
+				Exclusoes do relatorio (nao da execucao dos testes, so da metrica de
+				cobertura - todo o codigo ainda roda normalmente):
+				  - *Application.class: classe main, sem logica (so sobe o Spring)
+				  - config/SecurityConfig, config/OpenApiConfig: configuracao pura
+				    (wiring de beans), sem branches/logica condicional
+				  - dto/**: records simples (so campos), sem logica de negocio
+				  - service/exception/**: excecoes simples (so guardam uma mensagem
+				    no construtor), sem logica propria
+				  - mapper/*MapperImpl.class: implementacao gerada em build-time pelo
+				    MapStruct (nao e codigo escrito/mantido a mao); exercitada
+				    indiretamente pelos testes de controller, mas nao faz sentido
+				    escrever teste unitario dedicado pra codigo gerado
+				-->
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.12</version>
+				<configuration>
+					<excludes>
+						<exclude>**/PedidosApiApplication.class</exclude>
+						<exclude>**/config/SecurityConfig.class</exclude>
+						<exclude>**/config/OpenApiConfig.class</exclude>
+						<exclude>**/dto/**</exclude>
+						<exclude>**/service/exception/**</exclude>
+						<exclude>**/mapper/*MapperImpl.class</exclude>
+					</excludes>
+				</configuration>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
 					</execution>
 				</executions>
 			</plugin>

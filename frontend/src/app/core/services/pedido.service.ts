@@ -11,15 +11,11 @@ import {
   StatusPedido,
   podeTransicionar,
 } from '../models/pedido.model';
+import { DashboardService } from './dashboard.service';
 
 const FALLBACK_KEY = 'pedidos_fallback_local';
 
-/**
- * Alem do CRUD contra a API, mantem um cache compartilhado (pedidos$) usado
- * pela listagem, pelo dashboard e pelo formulario de cadastro (para checar o
- * limite de 5 sem duplicar chamadas), e implementa o fallback em LocalStorage
- * exigido para o cadastro quando a API esta indisponivel.
- */
+/** Cache compartilhado (pedidos$) + fallback em LocalStorage quando a API esta indisponivel. */
 @Injectable({ providedIn: 'root' })
 export class PedidoService {
   private readonly apiUrl = `${environment.apiUrl}/pedidos`;
@@ -31,21 +27,22 @@ export class PedidoService {
   private readonly apiDisponivelSubject = new BehaviorSubject<boolean>(true);
   readonly apiDisponivel$ = this.apiDisponivelSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  // LIMITE_MAXIMO_PEDIDOS e so o valor inicial ate a primeira resposta de /api/dashboard/metricas chegar
+  private readonly limiteMaximoSubject = new BehaviorSubject<number>(LIMITE_MAXIMO_PEDIDOS);
+  readonly limiteMaximo$ = this.limiteMaximoSubject.asObservable();
+
+  constructor(
+    private http: HttpClient,
+    private dashboardService: DashboardService,
+  ) {
     this.carregar();
+    this.dashboardService.buscarMetricas().subscribe((metricas) => this.limiteMaximoSubject.next(metricas.limiteMaximo));
   }
 
   carregar(): void {
     this.buscarTodos().subscribe((pedidos) => this.pedidosSubject.next(pedidos));
   }
 
-  /**
-   * Filtro (status/nome), paginacao e ordenacao resolvidos no backend
-   * (GET /api/pedidos/busca) - usado pela listagem, que dispara uma nova
-   * requisicao a cada mudanca de filtro/pagina/coluna ordenada, em vez de
-   * carregar tudo uma vez e filtrar no navegador (como pedidos$/buscarTodos
-   * ainda fazem, para o dashboard e a checagem de limite no cadastro).
-   */
   buscarPagina(filtro: FiltroPedidos): Observable<PaginaPedidos> {
     let params = new HttpParams().set('page', filtro.page).set('size', filtro.size);
     if (filtro.status) {
@@ -78,17 +75,16 @@ export class PedidoService {
     return this.http.post<Pedido>(this.apiUrl, request).pipe(
       tap(() => this.carregar()),
       catchError((error: HttpErrorResponse) => {
-        // status 0 = falha de rede/conexao (API fora do ar); demais status
-        // (400/422) sao respostas reais da API e devem ser propagados para
-        // que o formulario exiba a mensagem de validacao/regra de negocio.
+        // status 0 = falha de rede; outros status sao respostas reais da API e devem ser propagados
         if (error.status !== 0) {
           return throwError(() => error);
         }
 
         const totalConhecido = this.pedidosSubject.value.length;
-        if (totalConhecido >= LIMITE_MAXIMO_PEDIDOS) {
+        const limiteMaximo = this.limiteMaximoSubject.value;
+        if (totalConhecido >= limiteMaximo) {
           return throwError(() => new Error(
-            `Limite maximo de ${LIMITE_MAXIMO_PEDIDOS} pedidos cadastrados foi atingido`,
+            `Limite maximo de ${limiteMaximo} pedidos cadastrados foi atingido`,
           ));
         }
 

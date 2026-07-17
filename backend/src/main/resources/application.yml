@@ -2,6 +2,18 @@ spring:
   application:
     name: pedidos-api
 
+  mvc:
+    # Sem isso, uma rota inexistente (ex: GET /api/rota-que-nao-existe) cai no
+    # tratador padrao de recurso estatico do Spring (Whitelabel Error Page em
+    # HTML) em vez de lancar NoHandlerFoundException, que e o que o
+    # GlobalExceptionHandler precisa capturar para devolver o mesmo formato
+    # JSON de erro usado no resto da API.
+    throw-exception-if-no-handler-found: true
+
+  web:
+    resources:
+      add-mappings: false
+
   datasource:
     # valores default apontam para o MariaDB local do desafio; sobrescritos por
     # variaveis de ambiente ao rodar via Docker Compose (ver docker-compose.yml)
@@ -57,10 +69,13 @@ info:
 app:
   security:
     # segredo usado para assinar/validar o JWT (HMAC-SHA256, exige >= 256 bits).
-    # o valor abaixo e apenas o default de desenvolvimento local - em qualquer
-    # ambiente real isso DEVE vir da variavel de ambiente JWT_SECRET, nunca
-    # commitado. Ver README (secao JWT) para detalhes da escolha.
-    jwt-secret: ${JWT_SECRET:WrFvuOmUSYFfbnSRaWDnhGJtws-JPFFuiBf2CcJUZZM917LeTkX-5nqRqoPA3ecE}
+    # sem default aqui de proposito: a aplicacao falha rapido (erro na
+    # inicializacao) se JWT_SECRET nao for definido, em vez de cair
+    # silenciosamente num valor fraco/conhecido. O valor real e injetado via
+    # variavel de ambiente (docker-compose.yml + .env, nunca commitado) ou,
+    # rodando fora do Docker, pelo profile "local" (application-local.yml).
+    # Ver README (secao JWT) para detalhes.
+    jwt-secret: ${JWT_SECRET}
     # 1 hora, em milissegundos
     jwt-expiration-ms: ${JWT_EXPIRATION_MS:3600000}
   pedidos:

@@ -23,11 +23,12 @@ import {
   podeTransicionar,
 } from '../../../core/models/pedido.model';
 import { PedidoService } from '../../../core/services/pedido.service';
+import { extrairMensagemErro } from '../../../core/utils/http-error.util';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog/confirm-dialog.component';
 
 type FiltroStatus = StatusPedido | 'TODOS';
 
-/** Mapeia o id da coluna ordenavel (mat-sort-header) para o nome do campo na entidade do backend. */
+// mapeia o id da coluna ordenavel (mat-sort-header) para o nome do campo no backend
 const CAMPO_ORDENACAO_BACKEND: Record<string, string> = {
   cliente: 'displayName',
   itens: 'itens',
@@ -63,29 +64,22 @@ export class PedidoListComponent implements OnInit, OnDestroy {
 
   readonly displayedColumns = ['cliente', 'itens', 'peso', 'status', 'acoes'];
   readonly statusLabels = STATUS_LABELS;
-  readonly limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
+  limiteMaximo = LIMITE_MAXIMO_PEDIDOS;
   readonly StatusPedido = StatusPedido;
   readonly opcoesFiltroStatus: FiltroStatus[] = ['TODOS', ...Object.values(StatusPedido)];
   readonly pageSizeOptions = [5, 10, 25];
 
-  /** Página atual retornada por GET /api/pedidos/busca - reflete filtro/paginação/ordenação vigentes. */
   pedidos: Pedido[] = [];
   totalElements = 0;
   carregando = true;
 
-  /**
-   * Total de pedidos do usuário sem nenhum filtro aplicado (via pedidos$, o
-   * cache compartilhado com o dashboard/cadastro) - usado para o cabeçalho
-   * ("X de 5 pedidos") e para habilitar/desabilitar o botão "Adicionar",
-   * que precisa do limite real, não do total já filtrado pela busca/status.
-   */
+  // total sem filtro (via pedidos$) - usado pro limite real, nao o total ja filtrado pela busca
   totalPedidosUsuario = 0;
   apiIndisponivel = false;
 
   filtroStatus: FiltroStatus = 'TODOS';
   termoBusca = '';
 
-  /** Vinculados a [pageIndex]/[pageSize] no template - o paginador so reflete a pagina/tamanho de verdade se esses bindings existirem e apontarem para campos reativos (nao uma expressao estatica como pageSizeOptions[0]). */
   pageIndex = 0;
   pageSize = this.pageSizeOptions[0];
 
@@ -111,6 +105,9 @@ export class PedidoListComponent implements OnInit, OnDestroy {
     );
     this.subscriptions.add(
       this.pedidoService.apiDisponivel$.subscribe((disponivel) => (this.apiIndisponivel = !disponivel)),
+    );
+    this.subscriptions.add(
+      this.pedidoService.limiteMaximo$.subscribe((limite) => (this.limiteMaximo = limite)),
     );
 
     this.pedidoService.carregar();
@@ -169,7 +166,7 @@ export class PedidoListComponent implements OnInit, OnDestroy {
         this.notificar(`Pedido "${pedido.displayName}" atualizado para ${this.statusLabels[novoStatus]}`);
         this.buscar();
       },
-      error: (err) => this.notificar(this.extrairMensagemErro(err), true),
+      error: (err) => this.notificar(extrairMensagemErro(err, 'Ocorreu um erro inesperado'), true),
     });
   }
 
@@ -190,7 +187,7 @@ export class PedidoListComponent implements OnInit, OnDestroy {
           this.notificar(`Pedido "${pedido.displayName}" excluído com sucesso`);
           this.buscar();
         },
-        error: (err) => this.notificar(this.extrairMensagemErro(err), true),
+        error: (err) => this.notificar(extrairMensagemErro(err, 'Ocorreu um erro inesperado'), true),
       });
     });
   }
@@ -220,7 +217,7 @@ export class PedidoListComponent implements OnInit, OnDestroy {
           this.carregando = false;
           this.pedidos = [];
           this.totalElements = 0;
-          this.notificar(this.extrairMensagemErro(err), true);
+          this.notificar(extrairMensagemErro(err, 'Ocorreu um erro inesperado'), true);
         },
       });
   }
@@ -230,10 +227,5 @@ export class PedidoListComponent implements OnInit, OnDestroy {
       duration: 4000,
       panelClass: erro ? 'snackbar-erro' : 'snackbar-sucesso',
     });
-  }
-
-  private extrairMensagemErro(err: unknown): string {
-    const httpError = err as { error?: { message?: string }; message?: string };
-    return httpError?.error?.message ?? httpError?.message ?? 'Ocorreu um erro inesperado';
   }
 }

@@ -38,6 +38,13 @@ export interface FiltroPedidos {
   sort?: string | null; // "campo,direcao", ex: "displayName,asc"
 }
 
+/** Espelha o retorno de GET /api/dashboard/metricas, escopado ao usuario autenticado. */
+export interface DashboardMetricas {
+  totalPedidos: number;
+  porStatus: Record<StatusPedido, number>;
+  limiteMaximo: number;
+}
+
 export const STATUS_LABELS: Record<StatusPedido, string> = {
   [StatusPedido.EM_PROCESSAMENTO]: 'Em processamento',
   [StatusPedido.PAUSADO]: 'Pausado',
@@ -52,11 +59,7 @@ const TRANSICOES_PERMITIDAS: Record<StatusPedido, StatusPedido[]> = {
   [StatusPedido.CANCELADO]: [StatusPedido.EM_PROCESSAMENTO],
 };
 
-/**
- * Espelha a maquina de estados do backend (StatusPedido#podeTransicionarPara)
- * para habilitar/desabilitar acoes na listagem e para validar pedidos criados
- * localmente (fallback offline), sem depender de round-trip com a API.
- */
+// espelha a maquina de estados do backend (StatusPedido#podeTransicionarPara)
 export function podeTransicionar(atual: StatusPedido, novo: StatusPedido): boolean {
   return TRANSICOES_PERMITIDAS[atual].includes(novo);
 }

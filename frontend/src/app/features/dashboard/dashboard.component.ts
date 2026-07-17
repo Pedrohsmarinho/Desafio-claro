@@ -7,7 +7,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { Subscription, timer } from 'rxjs';
-import { LIMITE_MAXIMO_PEDIDOS, Pedido, STATUS_LABELS, StatusPedido } from '../../core/models/pedido.model';
+import {
+  DashboardMetricas,
+  LIMITE_MAXIMO_PEDIDOS,
+  Pedido,
+  STATUS_LABELS,
+  StatusPedido,
+} from '../../core/models/pedido.model';
+import { DashboardService } from '../../core/services/dashboard.service';
 import { PedidoService } from '../../core/services/pedido.service';
 
 Chart.register(...registerables);
@@ -18,6 +25,8 @@ const COR_CANCELADO = '#8f2323';
 const COR_MARCA = '#e4002b';
 const COR_VAGA = '#e6e6e6';
 
+const STATUS_ORDENADOS = [StatusPedido.EM_PROCESSAMENTO, StatusPedido.PAUSADO, StatusPedido.CANCELADO];
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -26,7 +35,6 @@ const COR_VAGA = '#e6e6e6';
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  /** Intervalo do polling que mantem os graficos atualizados mesmo com mudancas feitas em outra aba/sessao. */
   private static readonly INTERVALO_POLLING_MS = 20_000;
 
   private subscription?: Subscription;
@@ -58,21 +66,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     plugins: { legend: { position: 'bottom' } },
   };
 
-  constructor(private pedidoService: PedidoService) {}
+  constructor(
+    private pedidoService: PedidoService,
+    private dashboardService: DashboardService,
+  ) {}
 
   ngOnInit(): void {
-    // Observable compartilhado: reflete imediatamente qualquer acao feita
-    // nesta aba (criar/excluir/mudar status). O polling abaixo complementa
-    // isso recarregando periodicamente da API, para refletir mudancas feitas
-    // em outra aba/sessao (ex: outro usuario, ou este mesmo usuario em outro
-    // dispositivo) sem precisar recarregar a pagina manualmente.
     this.subscription = this.pedidoService.pedidos$.subscribe((pedidos) => {
-      this.atualizarGraficos(pedidos);
+      this.atualizarCardsResumo(pedidos);
       this.carregando = false;
     });
 
+    this.carregarMetricas();
+
+    // cobre mudancas feitas em outra aba/sessao, sem precisar recarregar a pagina
     this.pollingSubscription = timer(DashboardComponent.INTERVALO_POLLING_MS, DashboardComponent.INTERVALO_POLLING_MS)
-      .subscribe(() => this.pedidoService.carregar());
+      .subscribe(() => {
+        this.pedidoService.carregar();
+        this.carregarMetricas();
+      });
   }
 
   ngOnDestroy(): void {
@@ -80,27 +92,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.pollingSubscription?.unsubscribe();
   }
 
-  private atualizarGraficos(pedidos: Pedido[]): void {
+  private carregarMetricas(): void {
+    this.dashboardService.buscarMetricas().subscribe((metricas) => this.atualizarGraficos(metricas));
+  }
+
+  private atualizarCardsResumo(pedidos: Pedido[]): void {
     this.totalPedidos = pedidos.length;
     this.totalEmProcessamento = pedidos.filter((p) => p.status === StatusPedido.EM_PROCESSAMENTO).length;
     this.pesoTotalKg = pedidos.reduce((soma, p) => soma + p.pesoKg, 0);
     this.itensTotais = pedidos.reduce((soma, p) => soma + p.itens, 0);
+  }
 
-    const statusOrdenados = [StatusPedido.EM_PROCESSAMENTO, StatusPedido.PAUSADO, StatusPedido.CANCELADO];
-    const contagem = statusOrdenados.map(
-      (status) => pedidos.filter((p) => p.status === status).length,
-    );
+  private atualizarGraficos(metricas: DashboardMetricas): void {
+    this.limiteMaximo = metricas.limiteMaximo;
+    const contagem = STATUS_ORDENADOS.map((status) => metricas.porStatus[status] ?? 0);
 
     this.barChartData = {
       ...this.barChartData,
-      labels: statusOrdenados.map((status) => STATUS_LABELS[status]),
+      labels: STATUS_ORDENADOS.map((status) => STATUS_LABELS[status]),
       datasets: [{ ...this.barChartData.datasets[0], data: contagem }],
     };
 
-    const restante = Math.max(this.limiteMaximo - this.totalPedidos, 0);
+    const restante = Math.max(metricas.limiteMaximo - metricas.totalPedidos, 0);
     this.pieChartData = {
       ...this.pieChartData,
-      datasets: [{ ...this.pieChartData.datasets[0], data: [this.totalPedidos, restante] }],
+      datasets: [{ ...this.pieChartData.datasets[0], data: [metricas.totalPedidos, restante] }],
     };
   }
 }

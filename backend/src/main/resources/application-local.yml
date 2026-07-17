@@ -1,0 +1,17 @@
+# Profile para rodar o backend direto na maquina (mvnw spring-boot:run ou IDE),
+# fora do Docker Compose, contra um MariaDB local (ver README, secao "Como
+# executar (local, sem Docker)", pro SQL de setup do banco/usuario).
+# Ativar com: -Dspring.profiles.active=local (ou SPRING_PROFILES_ACTIVE=local)
+#
+# O default de jwt-secret abaixo existe só pra dar uma experiência "clonou e
+# já roda" nesse cenário local - nunca é usado em Docker/produção (lá o
+# profile default de application.yml exige JWT_SECRET explicito, ver .env).
+spring:
+  datasource:
+    url: jdbc:mariadb://localhost:3306/pedidos_db
+    username: pedidos_user
+    password: pedidos_pass
+
+app:
+  security:
+    jwt-secret: ${JWT_SECRET:segredo-de-desenvolvimento-local-apenas-fora-do-docker-nao-usar-em-producao}

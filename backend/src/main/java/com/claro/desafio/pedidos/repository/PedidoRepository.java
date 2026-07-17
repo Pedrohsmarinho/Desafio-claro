@@ -17,11 +17,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     long countByUsuarioId(Long usuarioId);
 
-    /**
-     * Filtro combinado (status e busca por nome sao opcionais, aplicados
-     * somente quando informados) com paginacao/ordenacao delegadas ao
-     * Pageable - usado pela listagem paginada da API (GET /api/pedidos/busca).
-     */
+    // status e busca por nome sao opcionais; paginacao/ordenacao delegadas ao Pageable
     @Query("select p from Pedido p where p.usuarioId = :usuarioId "
             + "and (:status is null or p.status = :status) "
             + "and (:busca is null or lower(p.displayName) like lower(concat('%', :busca, '%')))")
@@ -31,17 +27,17 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
             @Param("busca") String busca,
             Pageable pageable);
 
-    /** Usado para checar posse do pedido: um id que existe mas e de outro usuario deve "nao ser encontrado". */
+    // pedido de outro usuario deve "nao ser encontrado", nao 403
     Optional<Pedido> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    /** Usado nas metricas de negocio (pedidos_by_status) - contagem global, entre todos os usuarios. */
+    // escopada a um usuario (dashboard do frontend); countByStatus abaixo e a global (Grafana)
+    long countByUsuarioIdAndStatus(Long usuarioId, StatusPedido status);
+
     long countByStatus(StatusPedido status);
 
-    /** Usado na metrica de negocio pedidos_peso_total_gramas - soma global, entre todos os usuarios. */
     @Query("select coalesce(sum(p.peso), 0) from Pedido p")
     long somaPeso();
 
-    /** Usado na metrica de negocio pedidos_itens_total - soma global, entre todos os usuarios. */
     @Query("select coalesce(sum(p.itens), 0) from Pedido p")
     long somaItens();
 }

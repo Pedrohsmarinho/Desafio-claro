@@ -5,15 +5,7 @@ import { environment } from '../../../environments/environment';
 
 export type StatusApi = 'verificando' | 'up' | 'down';
 
-/**
- * Consome /actuator/health de verdade (nao apenas infere disponibilidade a
- * partir de falhas em chamadas de negocio, como o PedidoService faz para o
- * fallback offline). Faz polling simples a cada 30s - suficiente para um
- * indicador de saude no topo da aplicacao (nao exige a mesma frequencia do
- * scrape do Prometheus, que serve a um proposito diferente: alimentar
- * series historicas, nao so mostrar um status atual), sem exigir
- * WebSocket/SSE.
- */
+// consome /actuator/health de verdade, com polling simples a cada 30s
 @Injectable({ providedIn: 'root' })
 export class HealthService {
   private readonly INTERVALO_MS = 30_000;

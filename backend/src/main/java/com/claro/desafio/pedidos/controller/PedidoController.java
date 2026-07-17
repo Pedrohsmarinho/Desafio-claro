@@ -6,6 +6,7 @@ import com.claro.desafio.pedidos.domain.Usuario;
 import com.claro.desafio.pedidos.dto.PedidoRequest;
 import com.claro.desafio.pedidos.dto.PedidoResponse;
 import com.claro.desafio.pedidos.dto.PedidoStatusUpdateRequest;
+import com.claro.desafio.pedidos.mapper.PedidoMapper;
 import com.claro.desafio.pedidos.service.PedidoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,12 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * O usuario dono dos pedidos e sempre o principal autenticado (injetado pelo
- * Spring Security a partir do JWT via JwtAuthenticationFilter) - nunca um
- * usuarioId vindo do corpo, path ou query da requisicao. Isso evita que um
- * usuario manipule pedidos de outro trocando um id na URL.
- */
+/** Dono dos pedidos vem sempre do principal autenticado (JWT), nunca de parametro da requisicao. */
 @RestController
 @RequestMapping("/api/pedidos")
 @RequiredArgsConstructor
@@ -37,12 +33,13 @@ import java.util.List;
 public class PedidoController {
 
     private final PedidoService pedidoService;
+    private final PedidoMapper pedidoMapper;
 
     @GetMapping
     @Operation(summary = "Lista os pedidos do usuario autenticado")
     public List<PedidoResponse> listar(@AuthenticationPrincipal Usuario usuario) {
         return pedidoService.listarTodos(usuario.getId()).stream()
-                .map(PedidoResponse::from)
+                .map(pedidoMapper::toResponse)
                 .toList();
     }
 
@@ -53,7 +50,7 @@ public class PedidoController {
             @Parameter(description = "Filtra por nome do cliente (contem, sem diferenciar maiusculas/minusculas); omitido nao filtra") @RequestParam(required = false) String busca,
             @PageableDefault(size = 10, sort = "id") Pageable pageable,
             @AuthenticationPrincipal Usuario usuario) {
-        return pedidoService.buscar(usuario.getId(), status, busca, pageable).map(PedidoResponse::from);
+        return pedidoService.buscar(usuario.getId(), status, busca, pageable).map(pedidoMapper::toResponse);
     }
 
     @PostMapping
@@ -66,7 +63,7 @@ public class PedidoController {
     })
     public PedidoResponse criar(@Valid @RequestBody PedidoRequest request, @AuthenticationPrincipal Usuario usuario) {
         Pedido pedido = pedidoService.criar(request, usuario.getId());
-        return PedidoResponse.from(pedido);
+        return pedidoMapper.toResponse(pedido);
     }
 
     @PatchMapping("/{id}/status")
@@ -81,7 +78,7 @@ public class PedidoController {
             @Valid @RequestBody PedidoStatusUpdateRequest request,
             @AuthenticationPrincipal Usuario usuario) {
         Pedido pedido = pedidoService.alterarStatus(id, request.status(), usuario.getId());
-        return PedidoResponse.from(pedido);
+        return pedidoMapper.toResponse(pedido);
     }
 
     @DeleteMapping("/{id}")

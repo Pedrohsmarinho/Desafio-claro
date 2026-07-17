@@ -2,12 +2,7 @@
 
 @include mat.core();
 
-// Paleta da marca Claro: vermelho como cor predominante + branco, em vez de
-// uma paleta genérica do Material. Como o Material exige um mapa de tons
-// completo (50-900 + A100-A700 + contraste) para gerar variações corretas
-// de hover/disabled/etc., a escala abaixo foi derivada por interpolação a
-// partir do vermelho de marca (#E4002B) em vez de usar mat.$red-palette
-// (que é um vermelho material genérico, não o tom exato da Claro).
+// escala derivada do vermelho de marca (#E4002B), nao o vermelho generico do Material
 $claro-red: (
   50: #fef2f4,
   100: #fbd9df,
@@ -62,7 +57,6 @@ $pedidos-theme: mat.define-light-theme((
 @include mat.all-component-themes($pedidos-theme);
 
 :root {
-  // Vermelho e branco da Claro como identidade predominante da aplicação.
   --cor-marca: #e4002b;
   --cor-marca-escura: #a0001e;
   --cor-destaque: #2b2b2b;
@@ -71,12 +65,7 @@ $pedidos-theme: mat.define-light-theme((
   --cor-texto: #1c1c1c;
   --cor-texto-suave: #6b6b6b;
 
-  // Cores semânticas por status de pedido — deliberadamente independentes
-  // da paleta de marca (usadas direto em CSS custom properties, não em
-  // "color: primary/accent/warn"), para que o significado de cada cor seja
-  // sempre o mesmo em qualquer componente que exiba um status, sem se
-  // confundir com o vermelho de marca (o status CANCELADO usa um tom de
-  // vermelho propositalmente diferente do vermelho da Claro).
+  // cores de status independentes da paleta de marca, pra nao confundir com o vermelho da Claro
   --status-em-processamento: #1d6fa5;
   --status-em-processamento-bg: #e3f1fa;
   --status-pausado: #b9781a;
@@ -84,6 +73,7 @@ $pedidos-theme: mat.define-light-theme((
   --status-cancelado: #8f2323;
   --status-cancelado-bg: #f7e2e2;
 
+  // px de proposito: forma visual fixa, nao precisa escalar com zoom de fonte
   --raio-card: 14px;
   --raio-botao: 10px;
   --sombra-card: 0 1px 2px rgba(28, 28, 28, 0.06), 0 4px 12px rgba(28, 28, 28, 0.05);
@@ -102,13 +92,11 @@ html, body {
   box-sizing: border-box;
 }
 
-// Hierarquia tipográfica própria, usada nos títulos/subtítulos das telas
-// (ver dashboard, listagem, cadastro) em vez do texto corrido uniforme.
 .titulo-pagina {
   font-size: 1.75rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 4px;
+  margin: 0 0 0.25rem;
   color: var(--cor-texto);
 }
 
@@ -116,12 +104,9 @@ html, body {
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--cor-texto-suave);
-  margin: 0 0 24px;
+  margin: 0 0 1.5rem;
 }
 
-// Overrides globais de forma/densidade do Material para sair do "exemplo
-// copiado da documentação": cantos maiores nos cards, botões com cantos
-// própios e leve peso extra na fonte, sombra mais suave e difusa.
 .mat-mdc-card {
   border-radius: var(--raio-card) !important;
   box-shadow: var(--sombra-card) !important;

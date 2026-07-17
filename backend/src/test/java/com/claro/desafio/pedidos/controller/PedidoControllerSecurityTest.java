@@ -13,7 +13,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -63,10 +65,18 @@ class PedidoControllerSecurityTest {
 
     @Test
     void tokenValidoDeveRetornar200EListarApenasPedidosDoProprioUsuario() throws Exception {
-        String token = registrarNovoUsuarioERetornarToken();
+        String tokenUsuario1 = registrarNovoUsuarioERetornarToken();
+        criarPedido(tokenUsuario1, "Pedido do usuario 1");
 
-        mockMvc.perform(get("/api/pedidos").header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
+        String tokenUsuario2 = registrarNovoUsuarioERetornarToken();
+        criarPedido(tokenUsuario2, "Pedido do usuario 2 - A");
+        criarPedido(tokenUsuario2, "Pedido do usuario 2 - B");
+
+        mockMvc.perform(get("/api/pedidos").header("Authorization", "Bearer " + tokenUsuario2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[*].displayName", containsInAnyOrder(
+                        "Pedido do usuario 2 - A", "Pedido do usuario 2 - B")));
     }
 
     @Test
@@ -120,6 +130,30 @@ class PedidoControllerSecurityTest {
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(delete("/api/pedidos/{id}", pedidoDoUsuario1).header("Authorization", "Bearer " + tokenUsuario2))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void excluirPedidoExistenteRetorna204() throws Exception {
+        String token = registrarNovoUsuarioERetornarToken();
+        long pedidoId = criarPedido(token, "Pedido a excluir");
+
+        mockMvc.perform(delete("/api/pedidos/{id}", pedidoId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void idGenuinamenteInexistenteRetorna404() throws Exception {
+        String token = registrarNovoUsuarioERetornarToken();
+        long idQueNuncaExistiu = 999_999L;
+
+        mockMvc.perform(patch("/api/pedidos/{id}/status", idQueNuncaExistiu)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "PAUSADO"))))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(delete("/api/pedidos/{id}", idQueNuncaExistiu).header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
     }
 

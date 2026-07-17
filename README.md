@@ -13,7 +13,6 @@ diferencial.
 /monitoring -> configs de Prometheus/Loki/Promtail/Tempo + dashboards/provisioning do Grafana
 /postman    -> collection + environment do Postman e script de curl
 docker-compose.yml
-create-db-user.sh -> cria o banco/usuario do MariaDB (fluxo local, sem Docker)
 CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 ```
 
@@ -25,36 +24,12 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 
 ## Status do projeto
 
-> Em construção. Esta seção é atualizada a cada etapa concluída.
-
-- [x] Backend obrigatório: modelo de domínio, regras de negócio, endpoints,
-      Actuator, logs estruturados, testes manuais (curl) e JUnit.
-- [x] Backend migrado de H2 para MariaDB (persistência real).
-- [x] Frontend obrigatório: login, dashboard, listagem, cadastro.
-- [x] Validação ponta a ponta (via curl simulando o navegador + suites
-      automatizadas; veja nota abaixo sobre o teste visual manual).
-- [x] Swagger/OpenAPI + collection Postman com mocks.
-- [x] Backend multiusuário: cadastro de usuários, JWT completo, pedidos
-      isolados por usuário (autorização), limite de 5 por usuário.
-- [x] Frontend: tela única de login/cadastro com seletor, `AuthService`,
-      route guards e interceptor JWT.
-- [x] Frontend: identidade visual própria (paleta, tipografia, componentes),
-      cards de resumo, badges de status, estados vazio/carregando/erro.
-- [x] Micrometer + Prometheus (`/actuator/prometheus`) e métricas de negócio
-      customizadas (`pedidos_total`, `pedidos_by_status`, `pedidos_peso_total_gramas`,
-      `pedidos_itens`).
-- [x] Frontend: filtro por status + busca por nome, paginação/ordenação da
-      tabela, indicador de saúde da API (`/actuator/health`), polling no
-      dashboard.
-- [x] Docker Compose completo (backend, frontend, **MariaDB**, Prometheus,
-      Loki, Tempo, Grafana) — um único `docker compose up --build`, sem
-      pré-requisito externo — com tracing distribuído, logs centralizados
-      e um único dashboard provisionado automaticamente (negócio, saúde e
-      visão técnica juntos).
-- [x] Commits no Git organizados por Gitflow (`main`/`develop`,
-      Conventional Commits), release `v1.0.0` taggeada, proteção de branch
-      na `main` (PR obrigatório, sem force-push, `enforce_admins`), tudo
-      publicado no GitHub.
+Entregue: obrigatórios e diferenciais do enunciado completos (backend
+multiusuário com JWT, frontend completo, observabilidade full stack LGTM),
+mais uma revisão de qualidade/manutenibilidade sobre o resultado final. Os
+detalhes de cada decisão estão nas seções de "Decisões técnicas" abaixo; o
+que ficou fora do escopo está em
+["O que eu faria diferente com mais tempo"](#o-que-eu-faria-diferente-com-mais-tempo).
 
 ## Como executar (local, sem Docker)
 
@@ -62,15 +37,7 @@ CONTRIBUTING.md -> fluxo de branches (Gitflow) e Conventional Commits
 
 Pré-requisito: um MariaDB acessível em `localhost:3306` com o schema e
 usuário abaixo (ajuste via variáveis de ambiente `DB_URL`/`DB_USERNAME`/
-`DB_PASSWORD` se preferir outros valores). O script `create-db-user.sh`
-na raiz do repositório automatiza esse setup (requer um cliente
-`mysql`/`mariadb` e acesso admin ao servidor local):
-
-```bash
-./create-db-user.sh
-```
-
-Ou manualmente:
+`DB_PASSWORD` se preferir outros valores):
 
 ```sql
 CREATE DATABASE IF NOT EXISTS pedidos_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -79,28 +46,38 @@ GRANT ALL PRIVILEGES ON pedidos_db.* TO 'pedidos_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
+Rode com o profile `local` (usa `application-local.yml`: MariaDB em
+`localhost:3306` e um segredo de JWT de desenvolvimento, só para essa
+situação — nunca usado no Docker Compose):
+
 ```bash
 cd backend
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 > Rodando via Docker Compose? Esse passo não é necessário — o MariaDB é
-> containerizado e criado automaticamente (ver seção seguinte).
+> containerizado e criado automaticamente (ver seção seguinte), e o profile
+> default (`application.yml`, sem `local`) já é o usado lá dentro.
 
 A API sobe em `http://localhost:8080`. O schema (tabela `pedidos`) é criado/
 atualizado automaticamente pelo Hibernate (`ddl-auto: update`) na primeira
 subida, e o seed inicial é aplicado pelo `DataSeeder` somente se a tabela
 estiver vazia.
 
-Usuário de login de demonstração (criado automaticamente pelo `DataSeeder`
-na primeira subida, junto com os 3 pedidos do seed):
+Um usuário de demonstração é populado automaticamente pelo `DataSeeder` na
+primeira subida (junto com os 3 pedidos do seed) — as credenciais estão no
+próprio código-fonte
+(`backend/src/main/java/com/claro/desafio/pedidos/config/DataSeeder.java`),
+não reproduzidas aqui de propósito (este é um repositório público).
 
-- email: `admin@pedidos.com`
-- senha: `admin123`
-
-Também é possível criar novos usuários via `POST /api/auth/registrar` (ver
-[Contrato da API](#contrato-da-api)) — cada usuário só enxerga e manipula os
-próprios pedidos.
+O fluxo normal, porém, é criar sua própria conta: acesse
+`http://localhost:4200`, use o seletor **"Criar conta"** na tela de login
+(nome, email, senha — mínimo 8 caracteres) e você já é autenticado
+automaticamente após o cadastro. Cada usuário só enxerga e manipula os
+próprios pedidos. O mesmo endpoint por trás desse fluxo
+(`POST /api/auth/registrar`) também pode ser chamado diretamente (ver
+[Contrato da API](#contrato-da-api)), se preferir testar via curl/Postman
+em vez da tela.
 
 ### Frontend
 
@@ -115,10 +92,19 @@ A aplicação sobe em `http://localhost:4200` e consome a API em
 
 ## Como executar (via Docker Compose)
 
-Sem pré-requisitos externos: um único comando sobe **tudo**, incluindo o
-banco de dados — backend, frontend, MariaDB e a stack completa de
-observabilidade (**Prometheus + Loki + Tempo + Grafana**, o "LGTM stack"
-da Grafana Labs).
+Sem pré-requisitos externos além de criar o arquivo de segredos locais: um
+único comando sobe **tudo**, incluindo o banco de dados — backend, frontend,
+MariaDB e a stack completa de observabilidade (**Prometheus + Loki + Tempo +
+Grafana**, o "LGTM stack" da Grafana Labs).
+
+Primeiro, copie o template de variáveis de ambiente e gere um segredo de JWT
+próprio (o `.env` nunca é commitado — ver `.gitignore`):
+
+```bash
+cp .env.example .env
+# edite o .env e troque JWT_SECRET por um valor aleatório, por exemplo:
+openssl rand -base64 48
+```
 
 ```bash
 docker compose up --build -d
@@ -386,16 +372,20 @@ Em `/postman`:
 
 - `Pedidos-API.postman_collection.json` — todas as rotas (autenticação,
   registro, listar, criar, alterar status, excluir), organizadas em pastas
-  "Autenticação" e "Pedidos". Os requests de login/registro têm um script
-  de teste que salva automaticamente o token retornado na variável de
-  coleção `{{token}}`; os requests de Pedidos já usam
-  `Authorization: Bearer {{token}}`. Cada request tem **exemplos salvos**
-  (sucesso e os erros 400/401/404/409/422 relevantes), capturados a partir
-  de respostas reais da API. Import: Postman → File → Import → selecione o
-  arquivo.
+  "Autenticação" e "Pedidos". Variáveis de **coleção**: `baseUrl`,
+  `pedidoId`, `token` (vazio até o primeiro login/registro) e
+  `demoEmail`/`demoSenha` (credenciais do usuário semeado por
+  `DataSeeder`, usadas nos exemplos de login — troque pelas suas se
+  preferir). Os requests de login/registro têm um script de teste que
+  salva automaticamente o token retornado em `{{token}}`; os requests de
+  Pedidos já usam `Authorization: Bearer {{token}}`. Cada request tem
+  **exemplos salvos** (sucesso e os erros 400/401/404/409/422 relevantes),
+  capturados a partir de respostas reais da API. Import: Postman → File →
+  Import → selecione o arquivo.
 - `Pedidos-API.postman_environment.json` — variáveis `baseUrl`
-  (`http://localhost:8080`), `token` e `pedidoId`, para não precisar
-  hardcodar a URL em cada request.
+  (`http://localhost:8080`) e `pedidoId`, para não precisar hardcodar a
+  URL em cada request (ambiente opcional; a coleção já funciona sozinha
+  com as variáveis de coleção acima).
 - **Mock Server**: como cada request já tem exemplos salvos, é possível
   clicar com o botão direito na collection importada → "Mock collection" e o
   Postman sobe um servidor que responde com esses exemplos — útil para o
@@ -433,16 +423,31 @@ Em `/postman`:
   `TransicaoInvalidaException`, `PedidoNaoEncontradoException`,
   `CredenciaisInvalidasException`) + `@RestControllerAdvice` centralizando o
   mapeamento para os códigos HTTP exigidos (400/401/404/422), evitando
-  `try/catch` espalhado pelos controllers.
+  `try/catch` espalhado pelos controllers. Cobre também exceções de
+  parsing/binding do próprio Spring que não são de negócio, mas que sem
+  handler dedicado cairiam no catch-all genérico e virariam 500 em vez do
+  4xx correto: `MethodArgumentTypeMismatchException` (path variable/query
+  param com tipo incompatível, ex. `DELETE /api/pedidos/abc` → 400) e
+  `HttpRequestMethodNotSupportedException` (verbo HTTP sem handler para
+  aquele path, ex. `GET /api/pedidos/abc` → 405, já que só existe
+  `DELETE`/`PATCH /api/pedidos/{id}`). **Convenção estabelecida**: qualquer
+  ponto que precise montar um corpo de erro usa `ErrorResponse.of(HttpStatus,
+  mensagem, path)` (deriva `status`/`error` do próprio `HttpStatus`) — usado
+  tanto pelo `GlobalExceptionHandler` quanto pelo `JwtAuthenticationEntryPoint`
+  (que roda no filtro de segurança, antes do dispatch do Spring MVC, por isso
+  não passa pelo primeiro), evitando duplicar a montagem do corpo de erro em
+  mais de um lugar.
 - **Evolução para multiusuário + JWT completo**: a versão inicial do
   desafio tinha um único usuário hardcoded (`app.security.admin-email`) e o
   login não emitia token de verdade (`token: null`, documentado como algo a
   implementar depois). Isso foi substituído por um modelo real: entidade
   `Usuario` (nome, email único, senha com hash BCrypt) persistida no banco,
-  cadastro via `POST /api/auth/registrar`, e `POST /api/auth/login`
-  retornando um JWT de verdade. O `DataSeeder` continua criando o usuário
-  de demonstração (`admin@pedidos.com`/`admin123`) na primeira subida, para
-  não quebrar os fluxos e a documentação já existentes.
+  cadastro via `POST /api/auth/registrar` (ou pela tela de login, seletor
+  "Criar conta"), e `POST /api/auth/login` retornando um JWT de verdade. O
+  `DataSeeder` continua criando um usuário de demonstração na primeira
+  subida (credenciais no próprio `DataSeeder.java`, não repetidas aqui —
+  repositório público), para não quebrar os fluxos e a documentação já
+  existentes.
 - **Regra de senha: mínimo 8 caracteres**: sem exigir a combinação
   "maiúscula+número+símbolo" comum em formulários corporativos, que na
   prática empurra os usuários a padrões previsíveis (`Senha123!`) e não
@@ -462,10 +467,17 @@ Em `/postman`:
   meio-termo: curto o suficiente para limitar o estrago de um token vazado,
   longo o suficiente para não forçar login repetido durante o uso normal do
   sistema num desafio técnico (sem fluxo de refresh token, que ficou fora do
-  escopo). O segredo de assinatura vem de `app.security.jwt-secret`
-  (default de desenvolvimento no `application.yml`, sobrescrevível pela
-  variável de ambiente `JWT_SECRET` — nunca deve ser o mesmo valor em
-  produção).
+  escopo). O segredo de assinatura vem de `app.security.jwt-secret`, lido da
+  variável de ambiente `JWT_SECRET` **sem default** no profile principal
+  (`application.yml`) — a aplicação falha na subida se não for definido, em
+  vez de usar silenciosamente um valor fraco/conhecido. O valor real é
+  injetado via `.env` (gitignored, ver `.env.example`) no Docker Compose;
+  rodando fora do Docker, o profile `local` (`application-local.yml`) tem um
+  valor de conveniência só para essa situação, isolado do valor usado em
+  Docker/produção. Um valor antigo desse segredo chegou a ficar hardcoded
+  como default nesses arquivos em commits anteriores do histórico — foi
+  removido, mas por estar em histórico público de um repositório Git, deve
+  ser tratado como comprometido (nunca reaproveitado como segredo real).
 - **`JwtAuthenticationFilter` + `JwtAuthenticationEntryPoint`**: um
   `OncePerRequestFilter` valida o header `Authorization: Bearer <token>`,
   carrega o `Usuario` correspondente e o define como principal no
@@ -500,10 +512,104 @@ Em `/postman`:
   incorreto), `PedidoControllerSecurityTest` (contexto Spring completo +
   filtro de segurança real, sem mocks: `/api/pedidos` retorna 401 sem
   token/com token inválido/com token expirado, 422 em transição inválida
-  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário)
-  e `PedidoBuscaControllerTest` (filtro por status, busca por nome
-  case-insensitive, combinação dos dois, paginação, ordenação, isolamento
-  entre usuários no endpoint `/api/pedidos/busca`). 44 testes no total.
+  e no limite de 5, 404 ao tentar alterar/excluir pedido de outro usuário,
+  204 na exclusão bem-sucedida), `PedidoBuscaControllerTest` (filtro por
+  status, busca por nome case-insensitive, combinação dos dois, paginação,
+  ordenação, isolamento entre usuários no endpoint `/api/pedidos/busca`),
+  `DashboardControllerTest` (contagem por status escopada ao usuário
+  autenticado em `/api/dashboard/metricas`, isolamento entre usuários),
+  `AuthControllerTest` (login/registro: sucesso, 401, 400 de validação,
+  409 de email duplicado — via HTTP, não só a nível de serviço),
+  `PedidoValidacaoControllerTest` (validação de `POST /api/pedidos`: nome
+  vazio/curto, peso/itens ausentes/negativos/não numéricos, e rota
+  inexistente retornando 404 no formato padronizado) e
+  `PedidoControllerErroInesperadoTest` (uma exceção genérica não mapeada
+  cai no handler catch-all e retorna 500 sem vazar stacktrace/detalhe
+  interno para o cliente) e `GlobalExceptionHandlerTest` (o handler
+  isolado, sem contexto Spring/MockMvc — cada exceção customizada e a
+  genérica forçadas manualmente, conferindo status HTTP e corpo JSON
+  diretamente). 83 testes no total.
+
+### Cobertura de código (JaCoCo) e testes de cenários de erro
+
+Configurado `jacoco-maven-plugin` no `pom.xml` (`prepare-agent` antes dos
+testes, `report` gerado em `target/site/jacoco/index.html` logo depois,
+na fase `test`). **Sem `jacoco:check`/threshold mínimo por enquanto** —
+decisão deliberada de olhar o número real antes de definir uma meta, em
+vez de travar o build num percentual arbitrário. Exclusões do relatório
+(não da execução dos testes — todo o código real roda normalmente):
+classe `*Application` (main, sem lógica), `SecurityConfig`/`OpenApiConfig`
+(configuração pura, sem branches), `dto/**` (records simples) e
+`service/exception/**` (exceções triviais, só guardam uma mensagem).
+
+**Antes** (44 testes, cobrindo majoritariamente o caminho feliz +
+algumas regras de negócio): **92.8% linhas / 90.6% instruções / 85.0%
+branches**. Maior gap: `GlobalExceptionHandler` em 43% — a maioria dos
+handlers de exceção nunca era exercitada via HTTP de verdade.
+
+**Depois** (65 testes, com os cenários de erro/exception completos
+descritos acima): **99.4% linhas / 99.3% instruções / 85.0% branches**.
+`GlobalExceptionHandler` e `PedidoController` foram de 43%/80% para
+100%. A cobertura de branches não mudou porque os poucos branches
+restantes (`DataSeeder`, um `if` de "já semeado ou não") não fazem parte
+do escopo de cenários de erro da API.
+
+**Após a refatoração de camadas (Domain/Entidade/DTO, MapStruct,
+`DataSeeder` movido para `PedidoService` e restrito a `@Profile("!test")`
+— ver histórico do repositório)**: `GlobalExceptionHandlerTest` foi
+adicionado — testes unitários que instanciam o handler diretamente (sem
+`@SpringBootTest`/`MockMvc`), forçando cada exceção customizada e a
+genérica (`RuntimeException`/`NullPointerException` não mapeada)
+manualmente, complementando os testes de integração via controller já
+existentes. `GlobalExceptionHandler` permanece em **100% de linhas**. A
+cobertura **total do projeto caiu de 99.4% para ~89.4%** nessa mesma
+medição — não é uma regressão dos testes, é `DataSeeder` aparecendo com
+0% (consequência esperada de ter sido excluído da execução em testes via
+`@Profile("!test")`; antes disso ele rodava, ainda que sem asserções
+próprias, durante o `@SpringBootTest` de cada teste de controller).
+
+**Dois gaps reais de tratamento de erro foram encontrados e corrigidos
+no código (não só ajustados no teste) ao escrever esses testes**:
+
+1. **Rota inexistente retornava 500, não 404**: `GET /api/rota-que-nao-existe`
+   caía no handler catch-all genérico em vez de um 404 com o formato
+   padronizado. A causa: no Spring Framework 6.1+/Boot 3.2+, uma rota sem
+   handler lança `NoResourceFoundException` (não o mais antigo
+   `NoHandlerFoundException`, que era o que eu tinha mapeado
+   inicialmente) — descoberto empiricamente ao rodar o teste, não
+   assumido. Corrigido adicionando um `@ExceptionHandler(NoResourceFoundException.class)`
+   dedicado, além de configurar
+   `spring.mvc.throw-exception-if-no-handler-found: true` e
+   `spring.web.resources.add-mappings: false` (sem isso, a rota
+   inexistente nem chegava a lançar uma exceção capturável — caía direto
+   no tratamento padrão de recurso estático do Spring, com uma
+   Whitelabel Error Page em HTML).
+2. **Corpo de requisição malformado (ex: `"peso": "abc"` em vez de um
+   número) retornava 500, não 400**: um JSON com tipo errado num campo
+   causa `HttpMessageNotReadableException` durante a desserialização,
+   **antes** da Bean Validation rodar — uma exceção diferente de
+   `MethodArgumentNotValidException`, sem handler dedicado, caindo no
+   catch-all genérico (500) em vez de um 400 (erro do cliente, não do
+   servidor). Corrigido com um `@ExceptionHandler(HttpMessageNotReadableException.class)`
+   dedicado.
+
+Formato de erro já padronizado desde o início do projeto (`ErrorResponse`:
+`timestamp`, `status`, `error`, `message`, `path`), usado por **todos**
+os handlers de exceção sem exceção — os testes de erro não precisaram
+de um formato novo.
+
+### Testes de erro/exception no frontend
+
+Além dos cenários já descritos nas seções de testes por componente
+acima, os testes que simulam especificamente respostas de erro do
+backend (via `HttpTestingController`, sem precisar do backend rodando):
+login com 401 (`AuthService` propaga o erro e não grava token nenhum),
+`PedidoService.alterarStatus`/`excluir` com 422/404 vindos da API real
+(não do fallback local), e o tratamento desses mesmos erros na tela de
+listagem (mensagem de erro via snackbar, tela continua funcional, sem
+exceção não tratada). O `authInterceptor` (limpa sessão e redireciona em
+qualquer 401) e as mensagens de erro em `LoginComponent`/
+`PedidoFormComponent` já tinham cobertura de sessões anteriores.
 
 ## Decisões técnicas — Frontend
 
@@ -607,6 +713,29 @@ Em `/postman`:
   peso total, itens totais): complementam os gráficos com números diretos,
   sem precisar interpretar um gráfico para responder "quantos pedidos eu
   tenho mesmo".
+- **Gráficos do dashboard (barras "por status" e pizza "vs. limite")
+  consomem `GET /api/dashboard/metricas`, não recontam a lista de pedidos
+  no navegador**: antes, os dois gráficos eram calculados client-side
+  (`Array.filter`/`reduce` sobre `pedidos$`) — a mesma lógica de contagem
+  duplicada em dois lugares (dashboard e, potencialmente, qualquer outro
+  lugar que precisasse do mesmo número). Agora existe uma única query
+  autoritativa no backend (`PedidoService.buscarMetricasDashboard`,
+  escopada por `usuarioId`), e o frontend só exibe o que ela retorna.
+  **Decisão deliberada de não ler direto do `MeterRegistry` do
+  Micrometer** (que alimenta `/actuator/prometheus` e o Grafana): as
+  métricas de negócio (`pedidos_total`, `pedidos_by_status`) são
+  **globais** (somam todos os usuários) e, no caso de `pedidos_total`,
+  **cumulativas** (um `Counter` que nunca decresce com exclusões) — nenhuma
+  das duas coisas é o que o card/gráfico do usuário logado precisa mostrar
+  ("quantos pedidos eu tenho *agora*"). Taguear essas métricas por usuário
+  para reaproveitá-las aqui também foi descartado: cardinalidade por
+  usuário num Gauge/Counter do Prometheus é um anti-pattern conhecido
+  (cresce sem limite conforme a base de usuários cresce). Por isso, o
+  Grafana continua respondendo "qual a saúde/uso agregado do sistema" com
+  as métricas globais de sempre, e `/api/dashboard/metricas` responde
+  "quantos pedidos esse usuário tem agora, por status" com uma consulta
+  direta ao banco escopada por usuário — perguntas diferentes, por
+  design, cada uma com a fonte de dados certa para o que ela responde.
 - **Estados vazio/carregando/API indisponível tratados explicitamente**: a
   listagem e o dashboard mostram um spinner enquanto carregam, uma
   ilustração + CTA ("Cadastrar o primeiro pedido") quando não há nenhum
@@ -656,12 +785,115 @@ Em `/postman`:
   dispositivo) — sem isso, os gráficos ficariam desatualizados até a
   próxima navegação para a tela.
 
+### Unidades relativas (rem) vs. px no CSS
+
+Espaçamento (`padding`/`margin`/`gap`), tipografia e "larguras-teto" de
+containers (`max-width`/`min-width`/`flex-basis`, inclusive os pontos de
+quebra de `grid-template-columns`/ícones dimensionados por `font-size`) usam
+`rem` em vez de `px` — escalam de forma proporcional se o usuário aumentar a
+fonte padrão do navegador (acessibilidade) ou usar zoom, em vez de manter um
+valor fixo em pixels reais de tela. Para os `max-width` de containers
+especificamente, optei por `rem` e não por `%`: um "teto máximo" de largura
+não tem um `%` de referência útil (o elemento pai já ocupa 100%) — `rem` é o
+equivalente real a "não passe de X, mas ainda assim acompanhe o zoom/fonte do
+usuário".
+
+`px` foi mantido apenas onde o valor é uma decisão puramente visual, que não
+deveria escalar com zoom de fonte: bordas finas (`1px solid`), offsets de
+`box-shadow`, o raio de borda dos cards/botões (`--raio-card`,
+`--raio-botao`), o `border-radius: 999px` dos badges "pill" (já é um valor
+grande o bastante pra forçar o arredondamento total em qualquer tamanho) e
+o deslocamento mínimo (`translateY(4px)`) da animação de entrada do
+formulário de login.
+
+### Análise e correções de UX/UI
+
+Revisão crítica do fluxo completo (login/cadastro, dashboard, listagem,
+cadastro de pedido) em desktop e mobile, focada em consistência antes de
+qualquer elemento novo. Dois problemas reais de layout responsivo (não
+escolha estética) foram encontrados e corrigidos:
+
+- **Toolbar sobrepondo o nome do app em telas estreitas**: os links
+  (Dashboard/Pedidos), o indicador de saúde da API e "Sair" ficavam
+  ilegíveis/inclicáveis por não haver `flex-wrap` nem colapso em telas
+  pequenas. Corrigido escondendo os rótulos de texto (mantendo ícone +
+  `matTooltip`) abaixo de `37.5rem` de largura — sem introduzir um padrão de
+  navegação novo (menu hambúrguer/gaveta), só resolvendo a quebra existente.
+- **Tabela de pedidos "empurrando" a página inteira no mobile**: a
+  `<table>` não tinha um container com rolagem própria, então a página
+  toda ficava mais larga que a viewport. Corrigido com um wrapper
+  (`.tabela-wrapper`) com `overflow-x: auto` e `min-width` na tabela — agora
+  só a tabela rola horizontalmente, o resto da página permanece fixo na
+  largura da tela.
+
+Outros pontos observados (estados vazio/carregando, tela de erro de login,
+aba de cadastro) já seguiam um padrão consistente entre as telas
+(`.estado-vazio`/`.estado-carregando`, `titulo-pagina`/`subtitulo-pagina`) e
+não exigiram mudança. Nenhum ponto encontrado envolveu decisão de paleta,
+tipografia ou densidade dos componentes.
+
+### Gestão de dependências (package-lock.json)
+
+`package-lock.json` não é versionado no repositório (está no
+`.gitignore` do frontend). É uma escolha deliberada, ciente de que o mais
+comum é o oposto (versionar o lock file para reprodutibilidade total de
+build entre máquinas/CI): sem o lock file, a mitigação escolhida foi fixar
+**versões exatas** (sem `^`/`~`) em todas as dependências do
+`package.json`, reduzindo (embora não eliminando por completo, já que
+sub-dependências transitivas ainda podem variar) o risco de builds
+diferentes puxarem versões diferentes em máquinas diferentes.
+
+Antes de fixar as versões, auditei se cada dependência listada era
+realmente usada (`grep` por import no código-fonte). `@angular/platform-browser-dynamic`
+não aparecia em nenhum import do projeto (o bootstrap é via
+`bootstrapApplication`, standalone, não `platformBrowserDynamic().bootstrapModule()`)
+e foi removida — mas os testes (`ng test`) quebraram logo em seguida: o
+próprio builder de testes do Angular gera um arquivo de bootstrap virtual
+que importa `@angular/platform-browser-dynamic/testing` internamente,
+invisível a um `grep` do código-fonte. A dependência foi restaurada; fica
+registrado como lição: para pacotes do próprio ecossistema Angular/CLI,
+"sem import direto" não é garantia de "não utilizado".
+
+### Revisão de qualidade (code review) — convenções estabelecidas
+
+Passada de revisão focada em manutenibilidade (não funcionalidade nova),
+seguindo as categorias padrão de code review (duplicação, nomenclatura,
+complexidade, tratamento de erro, testes). Corrigido o que era mecânico e
+sem risco; itens subjetivos (estilo/densidade) foram confirmados antes de
+alterar. Duas convenções novas ficam registradas para uso daqui pra frente:
+
+- **`extrairMensagemErro(err, mensagemPadrao)`** (`core/utils/http-error.util.ts`):
+  utilitário único para extrair a mensagem de um erro HTTP (`error.message`
+  do backend, com fallback pro `message` técnico do próprio Angular, e por
+  fim um texto padrão) — usado por `LoginComponent`, `PedidoFormComponent` e
+  `PedidoListComponent`, que antes reimplementavam a mesma lógica cada um a
+  seu jeito (pequenas divergências entre si). Qualquer tela nova que precise
+  exibir erro de uma chamada HTTP deve usar esse utilitário, não reescrever
+  a extração na mão.
+- **`PedidoService.limiteMaximo$`**: fonte única do limite máximo de pedidos
+  no frontend, populada a partir de `GET /api/dashboard/metricas` (o valor
+  real configurado no backend, `app.pedidos.limite-maximo`) assim que a
+  primeira resposta chega — `LIMITE_MAXIMO_PEDIDOS` (constante estática) vira
+  só o valor inicial seguro antes disso. Antes da correção, três telas
+  (dashboard, listagem, cadastro) exibiam o valor estático diretamente; se o
+  backend mudasse o limite configurado, o texto ficaria desatualizado
+  enquanto o gráfico do dashboard (que já lia da API) mostraria o valor
+  certo. Qualquer tela que precise do limite deve se inscrever em
+  `pedidoService.limiteMaximo$`, não importar a constante diretamente para
+  exibição.
+
+Achado também corrigido nesta revisão (não era conhecido antes): `GET
+/api/pedidos/{id-não-numérico}` e variantes (`DELETE`/`PATCH`) retornavam
+500 em vez de 400/405 — ver handlers de `MethodArgumentTypeMismatchException`
+e `HttpRequestMethodNotSupportedException` na seção de decisões técnicas do
+backend.
+
 ## Validação realizada
 
-O ambiente de execução usado para construir este projeto não tinha acesso a
-um navegador interativo (extensão Chrome não conectada), então a validação
-ponta a ponta foi feita por meios automatizados/equivalentes, não
-visualmente:
+Boa parte da validação ponta a ponta foi feita por meios automatizados
+(testes + `curl`), com uma passada visual real (Chrome headless via
+Playwright, screenshots em desktop e mobile) usada especificamente para a
+revisão de responsividade/UX descrita nas decisões técnicas do frontend:
 
 - Backend: bateria de `curl` cobrindo seed, login (sucesso/falha), registro
   (sucesso com login automático, email duplicado, senha curta), listagem,
@@ -670,28 +902,37 @@ visualmente:
   acesso cross-user a pedido de outro usuário (404), e um preflight
   `OPTIONS` + `POST` com header `Origin` para confirmar que o CORS funciona
   como o navegador exigiria.
-- Backend: 44 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
+- Backend: 83 testes JUnit (`StatusPedidoTest`, `PedidoServiceTest` —
   incluindo isolamento entre usuários —, `AuthServiceTest`, `JwtServiceTest`,
-  `PedidoControllerSecurityTest` e `PedidoBuscaControllerTest` — contexto
-  Spring completo, sem mocks) rodando contra H2.
-- Frontend: `ng build` (dev e produção) sem erros; 63 testes Jasmine/Karma
+  `PedidoControllerSecurityTest`, `PedidoBuscaControllerTest`,
+  `DashboardControllerTest`, `AuthControllerTest`,
+  `PedidoValidacaoControllerTest`, `PedidoControllerErroInesperadoTest` —
+  contexto Spring completo, sem mocks, exceto o service mockado no teste
+  de 500 — e `GlobalExceptionHandlerTest`, unitário e isolado do contexto
+  Spring) rodando contra H2, com cobertura JaCoCo em 100% de linhas no
+  `GlobalExceptionHandler` (ver seção dedicada acima para o número total
+  do projeto e por que ele varia).
+- Frontend: `ng build` (dev e produção) sem erros; 71 testes Jasmine/Karma
   (`ChromeHeadless`) cobrindo a máquina de transição de status, o fallback
   de LocalStorage do `PedidoService`, o `authGuard` (permite/bloqueia +
   redireciona), o `authInterceptor` (anexa token, reage a 401), o
   `AuthService` (sessão em `sessionStorage`, expiração de token), o
+  `DashboardService` (consumo de `/api/dashboard/metricas`), o
   `HealthService` (up/down/polling), o filtro/busca/paginação/ordenação da
   listagem via `/api/pedidos/busca` (incluindo o debounce de 300ms na
   busca e a regressão de paginação/tamanho de página corrigida com dados
-  mockados), a validação e o fluxo de login/cadastro do `LoginComponent`, os
-  cards de resumo/gráficos/polling do `DashboardComponent`, e a validação
-  e o limite de 5 pedidos no `PedidoFormComponent`.
-- Verificado que o `ng serve` já em execução recompilou automaticamente
-  (watch mode) e está servindo o bundle atualizado (strings como
-  `authInterceptor`/`Criar conta` confirmadas no `main.js` publicado).
+  mockados), a validação e o fluxo de login/cadastro do `LoginComponent`,
+  os cards de resumo e os gráficos do `DashboardComponent` (agora via
+  `/api/dashboard/metricas`), e a validação e o limite de 5 pedidos no
+  `PedidoFormComponent`.
+- Visual: screenshots reais (Chrome headless) de login, dashboard, listagem
+  e cadastro de pedido em 1440px e 390px de largura, usados pra confirmar a
+  troca de `px` por `rem` e as correções de responsividade (ver "Análise e
+  correções de UX/UI" nas decisões técnicas do frontend).
 
-**Recomendação**: antes de considerar o fluxo 100% validado, abra
-`http://localhost:4200` em um navegador e percorra manualmente
-login/cadastro → dashboard → listagem → cadastro de pedido → mudança de
+**Recomendação**: mesmo assim, antes de considerar o fluxo 100% validado
+por completo, abra `http://localhost:4200` em um navegador e percorra
+manualmente login/cadastro → dashboard → listagem → cadastro de pedido → mudança de
 status → exclusão → logout → tentativa de acessar `/dashboard` sem estar
 logado (deve redirecionar para `/login`).
 
@@ -700,32 +941,45 @@ logado (deve redirecionar para `/login`).
 - **Refresh token**: hoje o JWT expira em 1h e o usuário precisa logar de
   novo — um fluxo de refresh token (com rotação e revogação) evitaria isso
   sem aumentar a janela de exposição de um token de acesso de vida longa.
-- **Cookie `httpOnly` em vez de `sessionStorage`**: a proteção real contra
-  roubo de token via XSS, discutida na seção de decisões técnicas do
-  frontend — ficou fora do escopo por exigir mudanças de CORS/CSRF.
-- **Rate limiting em `/api/auth/login` e `/api/auth/registrar`**: hoje nada
-  impede tentativas de força bruta contra o login ou criação em massa de
-  contas; um limitador (ex: Bucket4j, ou um proxy como Nginx/API Gateway na
-  frente) fecharia essa lacuna.
 - **Verificação de email no cadastro**: hoje qualquer email "com formato
   válido" é aceito sem confirmar que o dono realmente tem acesso a ele.
-- **Migrações versionadas (Flyway/Liquibase)**: `ddl-auto: update` é
-  suficiente para o escopo do desafio, mas não seria adequado em produção —
-  não há histórico/rollback de mudanças de schema.
-- **Testes end-to-end de verdade (Cypress/Playwright)**: o ambiente usado
-  para construir este projeto não tinha acesso a um navegador interativo,
-  então a validação do frontend ficou nos testes unitários (Jasmine/Karma) +
-  validação manual do backend via curl/Postman. Um suite E2E cobrindo os
-  fluxos completos (login → cadastro de pedido → mudança de status →
-  logout) daria mais confiança do que a combinação atual.
+- **Cache em pontos de leitura repetida**: hoje toda requisição autenticada
+  passa por `JwtAuthenticationFilter`, que faz `UsuarioRepository
+  .findByEmailIgnoreCase` a cada chamada — um dado que raramente muda,
+  ótimo candidato a `@Cacheable` (Spring Cache + Caffeine, TTL curto) em vez
+  de bater no banco a cada request. `GET /api/dashboard/metricas` também é
+  chamado em polling pelo frontend a cada 20s; um cache server-side de
+  poucos segundos reduziria consultas redundantes se o mesmo usuário tiver
+  múltiplas abas abertas. Nenhum dos dois foi feito agora porque o volume de
+  dados/requisições do desafio não justifica a complexidade adicional (cache
+  a invalidar, dependência nova) — mas seriam os primeiros pontos a otimizar
+  num cenário de tráfego real.
+- **Testes end-to-end de verdade (Cypress/Playwright)**: a validação do
+  frontend ficou nos testes unitários (Jasmine/Karma) + uma passada visual
+  manual via screenshots (ver "Validação realizada"), não um suite E2E de
+  verdade rodando os fluxos completos (login → cadastro de pedido → mudança
+  de status → logout) com asserções automatizadas de ponta a ponta.
 - **CI configurado** (GitHub Actions): rodar os testes (JUnit + Jasmine) e
   o build do Docker automaticamente a cada push/PR, aproveitando a proteção
   de branch já configurada na `main` (que hoje exige PR, mas não exige um
   check de CI passando).
-- **Prints/GIF da aplicação e do dashboard Grafana no README**: o ambiente
-  usado para construir este projeto não teve, neste momento, acesso a um
-  navegador interativo para capturar telas. Toda a validação visual foi
-  feita via `curl`, testes automatizados e consultas diretas às APIs do
-  Grafana/Prometheus/Loki/Tempo (ver seções de decisões técnicas) — mas
-  substituir isso por capturas reais deixaria a documentação mais concreta
+- **Internacionalização (i18n)**: hoje todo texto (telas, mensagens de
+  validação, mensagens de erro do backend) está hardcoded em português,
+  direto nos templates/componentes e no `GlobalExceptionHandler`. Suportar
+  outro idioma exigiria extrair essas strings (`@angular/localize` no
+  frontend) e parametrizar as mensagens de erro do backend por locale — não
+  foi feito porque o enunciado e o público-alvo do desafio são em português.
+- **Guia de acessibilidade**: a base do Angular Material já ajuda (contraste
+  razoável, navegação por teclado nos componentes prontos), mas há lacunas
+  reais não fechadas — por exemplo, os botões de ação da listagem
+  (processar/pausar/cancelar/excluir, em `pedido-list.component.html`) usam
+  `mat-icon-button` só com `matTooltip` (visível no hover/foco do mouse), sem
+  `aria-label` (o paginador, por comparação, já tem um). Um guia de
+  acessibilidade real cobriria isso, mais um audit de contraste de cor nas
+  paletas de status/marca e um teste manual de navegação inteiramente por
+  teclado/leitor de tela.
+- **Prints/GIF da aplicação e do dashboard Grafana no README**: screenshots
+  reais foram usados para validar a responsividade (ver "Validação
+  realizada"), mas não foram salvos como imagens versionadas no
+  repositório/README — incluí-los deixaria a documentação mais concreta
   para quem for avaliar sem rodar o projeto localmente.

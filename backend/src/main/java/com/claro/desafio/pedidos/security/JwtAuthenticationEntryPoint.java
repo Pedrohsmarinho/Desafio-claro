@@ -22,7 +22,6 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private final ObjectMapper objectMapper;
 
-    /** ObjectMapper autoconfigurado pelo Spring Boot, com o modulo JSR-310 (java.time) ja registrado. */
     public JwtAuthenticationEntryPoint(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
@@ -34,8 +33,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
         ErrorResponse body = ErrorResponse.of(
-                HttpStatus.UNAUTHORIZED.value(),
-                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                HttpStatus.UNAUTHORIZED,
                 "Token ausente, invalido ou expirado",
                 request.getRequestURI());
 

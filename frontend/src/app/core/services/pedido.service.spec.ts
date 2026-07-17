@@ -2,12 +2,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { take } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LIMITE_MAXIMO_PEDIDOS, Pedido, StatusPedido } from '../models/pedido.model';
 import { PedidoService } from './pedido.service';
 
 const FALLBACK_KEY = 'pedidos_fallback_local';
 const apiUrl = `${environment.apiUrl}/pedidos`;
+const metricasUrl = `${environment.apiUrl}/dashboard/metricas`;
 
 describe('PedidoService', () => {
   let service: PedidoService;
@@ -23,8 +25,10 @@ describe('PedidoService', () => {
     service = TestBed.inject(PedidoService);
     httpMock = TestBed.inject(HttpTestingController);
 
-    // descarta o GET inicial disparado pelo construtor do service
+    // descarta o GET inicial disparado pelo construtor do service (pedidos) e
+    // a busca do limite maximo real (GET /api/dashboard/metricas)
     httpMock.match(apiUrl).forEach((req) => req.flush([]));
+    httpMock.match(metricasUrl).forEach((req) => req.flush({ totalPedidos: 0, porStatus: {}, limiteMaximo: LIMITE_MAXIMO_PEDIDOS }));
   });
 
   afterEach(() => {
@@ -105,6 +109,55 @@ describe('PedidoService', () => {
     req.error(new ProgressEvent('network error'), { status: 0, statusText: 'Unknown Error' });
   });
 
+  it('propaga erro 422 (transicao invalida) da API ao alterar status de pedido real', (done) => {
+    const pedidoReal: Pedido = {
+      id: 7,
+      displayName: 'Cliente Real',
+      itens: 1,
+      peso: 100,
+      pesoKg: 0.1,
+      status: StatusPedido.CANCELADO,
+    };
+
+    service.alterarStatus(pedidoReal, StatusPedido.PAUSADO).subscribe({
+      next: () => fail('nao deveria ter sucesso'),
+      error: (err: HttpErrorResponse) => {
+        expect(err.status).toBe(422);
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/7/status`);
+    expect(req.request.method).toBe('PATCH');
+    req.flush(
+      { message: 'Transicao invalida de CANCELADO para PAUSADO' },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+  });
+
+  it('propaga erro 404 da API ao excluir pedido de outro usuario/inexistente', (done) => {
+    const pedidoReal: Pedido = {
+      id: 8,
+      displayName: 'Cliente Real',
+      itens: 1,
+      peso: 100,
+      pesoKg: 0.1,
+      status: StatusPedido.EM_PROCESSAMENTO,
+    };
+
+    service.excluir(pedidoReal).subscribe({
+      next: () => fail('nao deveria ter sucesso'),
+      error: (err: HttpErrorResponse) => {
+        expect(err.status).toBe(404);
+        done();
+      },
+    });
+
+    const req = httpMock.expectOne(`${apiUrl}/8`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ message: 'Pedido nao encontrado: id=8' }, { status: 404, statusText: 'Not Found' });
+  });
+
   it('altera status de pedido local respeitando a maquina de transicao', (done) => {
     const pedidoLocal: Pedido = {
       id: 'local-123',
@@ -144,5 +197,50 @@ describe('PedidoService', () => {
         done();
       },
     });
+  });
+});
+
+describe('PedidoService - limite maximo dinamico (vindo de GET /api/dashboard/metricas)', () => {
+  let service: PedidoService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    localStorage.removeItem(FALLBACK_KEY);
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    service = TestBed.inject(PedidoService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    localStorage.removeItem(FALLBACK_KEY);
+  });
+
+  it('atualiza limiteMaximo$ para o valor real assim que a API responde, mesmo diferente do default estatico', (done) => {
+    httpMock.match(apiUrl).forEach((req) => req.flush([]));
+
+    // valor deliberadamente diferente de LIMITE_MAXIMO_PEDIDOS (5), simulando
+    // uma mudanca na configuracao real do backend (app.pedidos.limite-maximo)
+    httpMock.expectOne(metricasUrl).flush({ totalPedidos: 0, porStatus: {}, limiteMaximo: 10 });
+
+    service.limiteMaximo$.subscribe((limite) => {
+      expect(limite).toBe(10);
+      done();
+    });
+  });
+
+  it('usa LIMITE_MAXIMO_PEDIDOS como valor inicial seguro antes da API responder', (done) => {
+    httpMock.match(apiUrl).forEach((req) => req.flush([]));
+
+    // valor inicial do BehaviorSubject, emitido de forma sincrona ao inscrever -
+    // antes de flushar a resposta de GET /api/dashboard/metricas abaixo
+    service.limiteMaximo$.pipe(take(1)).subscribe((limite) => {
+      expect(limite).toBe(LIMITE_MAXIMO_PEDIDOS);
+      done();
+    });
+
+    httpMock.expectOne(metricasUrl).flush({ totalPedidos: 0, porStatus: {}, limiteMaximo: 10 });
   });
 });

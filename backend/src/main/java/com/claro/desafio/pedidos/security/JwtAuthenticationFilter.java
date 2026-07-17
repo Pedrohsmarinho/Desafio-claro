@@ -17,14 +17,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Le o header Authorization: Bearer <token>, valida o JWT e, se valido,
- * carrega o Usuario correspondente e o coloca no SecurityContext como
- * principal - e a partir dai que os controllers descobrem "quem" fez a
- * requisicao (nunca de um usuarioId vindo do corpo/query da requisicao).
- * Token ausente/invalido/expirado simplesmente deixa o contexto vazio; quem
- * decide se isso vira 401 e a regra de autorizacao no SecurityConfig.
- */
+/** Valida o Bearer token e popula o SecurityContext; token ausente/invalido so deixa o contexto vazio. */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {

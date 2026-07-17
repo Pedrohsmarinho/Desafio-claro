@@ -12,7 +12,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Optional;
 
-/** Emissao/validacao de JWT. O payload so carrega email e expiracao, nada sensivel. */
 @Service
 public class JwtService {
 
@@ -38,7 +37,6 @@ public class JwtService {
                 .compact();
     }
 
-    /** @return o email (claim "sub") se o token for valido e nao expirado; vazio caso contrario. */
     public Optional<String> validarEExtrairEmail(String token) {
         try {
             Claims claims = Jwts.parser()

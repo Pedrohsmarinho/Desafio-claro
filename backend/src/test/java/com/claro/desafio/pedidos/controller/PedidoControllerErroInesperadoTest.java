@@ -22,16 +22,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Confirma que uma excecao NAO mapeada explicitamente (ex: uma RuntimeException
- * generica vinda de uma falha inesperada no service - banco fora do ar,
- * bug, etc.) cai no handler catch-all de GlobalExceptionHandler e retorna
- * 500 com o mesmo formato JSON padronizado dos outros erros, sem vazar a
- * stacktrace/nome da excecao para o cliente. PedidoService e substituido
- * por um mock (@MockitoBean) so nesta classe - o resto do contexto
- * (seguranca, AuthService, etc.) continua real, entao o 500 e disparado
- * atraves do fluxo HTTP de verdade, nao de uma chamada direta ao metodo.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 class PedidoControllerErroInesperadoTest {

@@ -8,9 +8,6 @@ datasources:
     url: http://tempo:3200
     editable: true
     jsonData:
-      # Trace -> Logs: ao abrir um trace no Tempo, "View logs" busca no Loki
-      # os logs com o mesmo traceId (correlacao na outra direcao, complementar
-      # ao derivedField configurado no datasource do Loki).
       tracesToLogsV2:
         datasourceUid: loki
         spanStartTimeShift: "-5m"

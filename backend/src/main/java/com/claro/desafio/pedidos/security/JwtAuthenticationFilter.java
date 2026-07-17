@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-/** Valida o Bearer token e popula o SecurityContext; token ausente/invalido so deixa o contexto vazio. */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {

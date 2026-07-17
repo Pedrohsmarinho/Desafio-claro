@@ -1,8 +1,4 @@
 spring:
-  # ativa o profile "test", usado por DataSeeder (@Profile("!test")) pra nao
-  # rodar o seed de demonstracao durante os testes automatizados - nenhum
-  # teste depende dos dados semeados, cada um cria seus proprios
-  # usuarios/pedidos via API.
   profiles:
     active: test
 
@@ -16,12 +12,6 @@ spring:
     hibernate:
       ddl-auto: create-drop
 
-  # As migrations em db/migration usam sintaxe especifica do dialeto MySQL/
-  # MariaDB (ENUM, AUTO_INCREMENT, ENGINE=InnoDB), que nao roda no H2 usado
-  # aqui. Testes usam H2 em memoria justamente pela velocidade/isolamento, nao
-  # para validar o SQL das migrations - por isso o Flyway fica desligado so
-  # neste profile, e o Hibernate volta a criar o schema (create-drop) direto
-  # das entidades.
   flyway:
     enabled: false
 
@@ -33,9 +23,6 @@ app:
     limite-maximo: 5
 
 management:
-  # tracing desligado nos testes: nao ha Tempo rodando no ambiente de teste,
-  # e nao queremos tentativas de export OTLP (nem que sejam so logs de erro)
-  # poluindo a saida dos testes.
   tracing:
     sampling:
       probability: 0.0

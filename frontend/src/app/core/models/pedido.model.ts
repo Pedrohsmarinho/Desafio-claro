@@ -8,25 +8,23 @@ export interface Pedido {
   id: number | string;
   displayName: string;
   itens: number;
-  peso: number; // gramas (fonte da verdade)
+  peso: number;
   pesoKg: number;
   status: StatusPedido;
-  /** true quando o pedido foi criado via fallback de LocalStorage (API indisponível no momento do cadastro). */
   origemLocal?: boolean;
 }
 
 export interface PedidoCreateRequest {
   displayName: string;
   itens: number;
-  peso: number; // gramas, já convertido a partir do valor em kg digitado no formulário
+  peso: number;
 }
 
-/** Espelha o formato de Page<T> retornado por GET /api/pedidos/busca. */
 export interface PaginaPedidos {
   content: Pedido[];
   totalElements: number;
   totalPages: number;
-  number: number; // página atual (0-based)
+  number: number;
   size: number;
 }
 
@@ -35,10 +33,9 @@ export interface FiltroPedidos {
   busca?: string | null;
   page: number;
   size: number;
-  sort?: string | null; // "campo,direcao", ex: "displayName,asc"
+  sort?: string | null;
 }
 
-/** Espelha o retorno de GET /api/dashboard/metricas, escopado ao usuario autenticado. */
 export interface DashboardMetricas {
   totalPedidos: number;
   porStatus: Record<StatusPedido, number>;
@@ -59,7 +56,6 @@ const TRANSICOES_PERMITIDAS: Record<StatusPedido, StatusPedido[]> = {
   [StatusPedido.CANCELADO]: [StatusPedido.EM_PROCESSAMENTO],
 };
 
-// espelha a maquina de estados do backend (StatusPedido#podeTransicionarPara)
 export function podeTransicionar(atual: StatusPedido, novo: StatusPedido): boolean {
   return TRANSICOES_PERMITIDAS[atual].includes(novo);
 }

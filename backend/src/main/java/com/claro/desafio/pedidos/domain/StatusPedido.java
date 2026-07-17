@@ -5,13 +5,6 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Transicoes permitidas (De -> Para):
- *   EM_PROCESSAMENTO -> PAUSADO, CANCELADO
- *   PAUSADO          -> CANCELADO, EM_PROCESSAMENTO
- *   CANCELADO        -> EM_PROCESSAMENTO
- * Qualquer outra combinacao (incluindo mesmo estado) e invalida.
- */
 public enum StatusPedido {
     EM_PROCESSAMENTO,
     PAUSADO,

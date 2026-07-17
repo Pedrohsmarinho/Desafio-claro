@@ -1,4 +1,3 @@
-// decodifica so o payload, sem validar assinatura - a validacao de verdade e sempre no backend
 export function decodificarPayloadJwt(token: string): { exp?: number; sub?: string } | null {
   const partes = token.split('.');
   if (partes.length !== 3) {

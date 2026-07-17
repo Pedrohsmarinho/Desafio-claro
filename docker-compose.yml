@@ -1,17 +1,10 @@
 services:
   mariadb:
     image: mariadb:11.8.8
-    # 3307 (nao 3306) no host: evita conflito com um MariaDB local que
-    # porventura ja esteja escutando em 127.0.0.1:3306. Entre containers
-    # (backend, etc.) o acesso continua via o nome de servico "mariadb"
-    # na porta padrao 3306 - essa publicacao e so para clientes do host
-    # (DBeaver, mysql CLI, etc.), nao usada pela aplicacao.
     ports:
-      - "3307:3306"
+      - "3306:3306"
     environment:
       MARIADB_DATABASE: pedidos_db
-      # sem default: precisam vir do .env na raiz do projeto (gitignored, ver
-      # .env.example) - nunca commitar usuario/senha reais do banco.
       MARIADB_USER: ${DB_USERNAME:?defina DB_USERNAME no arquivo .env (ver .env.example)}
       MARIADB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no arquivo .env (ver .env.example)}
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?defina MARIADB_ROOT_PASSWORD no arquivo .env (ver .env.example)}
@@ -30,18 +23,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # nomes de servico do compose (rede bridge padrao, com DNS interno) no
-      # lugar de "localhost" - unico motivo pelo qual esta stack antes exigia
-      # network_mode: host era o MariaDB rodar fora do Compose, bindado em
-      # 127.0.0.1; agora que o banco tambem esta containerizado, a rede
-      # bridge padrao resolve os nomes de servico entre si sem problema.
       DB_URL: ${DB_URL:-jdbc:mariadb://mariadb:3306/pedidos_db}
-      # sem default: precisam vir do .env na raiz do projeto (gitignored, ver
-      # .env.example) - nunca commitar usuario/senha reais do banco.
       DB_USERNAME: ${DB_USERNAME:?defina DB_USERNAME no arquivo .env (ver .env.example)}
       DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no arquivo .env (ver .env.example)}
-      # sem default: precisa vir do .env na raiz do projeto (gitignored, ver
-      # .env.example) - nunca commitar o valor real do segredo do JWT.
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env (ver .env.example)}
       OTLP_ENDPOINT: ${OTLP_ENDPOINT:-http://tempo:4318/v1/traces}
     depends_on:
@@ -83,8 +67,6 @@ services:
     image: grafana/promtail:3.6.8
     volumes:
       - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
-      # Socket do Docker (somente leitura): usado pelo Promtail para descobrir
-      # os containers em execucao e fazer tail dos logs de cada um.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - loki
@@ -107,7 +89,6 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
-      # habilita a correlacao trace -> logs/metricas nos paineis de trace
       GF_FEATURE_TOGGLES_ENABLE: traceqlSearch
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning

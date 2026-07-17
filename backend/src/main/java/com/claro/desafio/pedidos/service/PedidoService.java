@@ -5,38 +5,39 @@ import com.claro.desafio.pedidos.domain.StatusPedido;
 import com.claro.desafio.pedidos.dto.DashboardMetricasResponse;
 import com.claro.desafio.pedidos.dto.PedidoRequest;
 import com.claro.desafio.pedidos.repository.PedidoRepository;
+import com.claro.desafio.pedidos.repository.UsuarioRepository;
 import com.claro.desafio.pedidos.service.exception.LimiteExcedidoException;
 import com.claro.desafio.pedidos.service.exception.PedidoNaoEncontradoException;
 import com.claro.desafio.pedidos.service.exception.TransicaoInvalidaException;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** Operacoes escopadas por usuarioId; pedido de outro usuario retorna 404, nao 403. */
 @Service
 public class PedidoService {
 
     private static final Logger log = LoggerFactory.getLogger(PedidoService.class);
 
     private final PedidoRepository pedidoRepository;
+    private final UsuarioRepository usuarioRepository;
     private final Counter pedidosTotalCounter;
 
     @Value("${app.pedidos.limite-maximo}")
     private int limiteMaximo;
 
-    public PedidoService(PedidoRepository pedidoRepository, MeterRegistry meterRegistry) {
+    public PedidoService(PedidoRepository pedidoRepository, UsuarioRepository usuarioRepository, MeterRegistry meterRegistry) {
         this.pedidoRepository = pedidoRepository;
-        // Counter, nao Gauge: e cumulativo, nao decresce com exclusoes (diferente de pedidos_by_status)
+        this.usuarioRepository = usuarioRepository;
         this.pedidosTotalCounter = Counter.builder("pedidos_total")
                 .description("Total de pedidos criados (cumulativo, nao decresce com exclusoes)")
                 .register(meterRegistry);
@@ -51,7 +52,6 @@ public class PedidoService {
         return pedidoRepository.buscar(usuarioId, status, buscaNormalizada, pageable);
     }
 
-    // consulta o banco direto, nao o MeterRegistry: pedidos_by_status/pedidos_total sao globais (Grafana), isso e por usuario
     public DashboardMetricasResponse buscarMetricasDashboard(Long usuarioId) {
         Map<StatusPedido, Long> porStatus = new EnumMap<>(StatusPedido.class);
         for (StatusPedido status : StatusPedido.values()) {
@@ -66,7 +66,10 @@ public class PedidoService {
                 .orElseThrow(() -> new PedidoNaoEncontradoException(id));
     }
 
+    @Transactional
     public Pedido criar(PedidoRequest request, Long usuarioId) {
+        usuarioRepository.buscarPorIdComLock(usuarioId);
+
         long totalAtual = pedidoRepository.countByUsuarioId(usuarioId);
         if (totalAtual >= limiteMaximo) {
             log.warn("Usuario id={} tentou criar pedido acima do limite maximo ({}). Total atual: {}",

@@ -79,7 +79,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.carregarMetricas();
 
-    // cobre mudancas feitas em outra aba/sessao, sem precisar recarregar a pagina
     this.pollingSubscription = timer(DashboardComponent.INTERVALO_POLLING_MS, DashboardComponent.INTERVALO_POLLING_MS)
       .subscribe(() => {
         this.pedidoService.carregar();

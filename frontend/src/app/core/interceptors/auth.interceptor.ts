@@ -5,7 +5,6 @@ import { catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../services/auth.service';
 
-// anexa o Bearer token nas chamadas a API; em 401 limpa a sessao e redireciona pro login
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
